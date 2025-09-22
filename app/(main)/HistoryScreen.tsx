@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  SafeAreaView,
-  RefreshControl,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SavedResult } from '../../utils/types';
-import { getSavedResults, deleteResult } from '../../utils/storage';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import HistoryItem from '../../components/HistoryItem';
-import Button from '../../components/Button';
+import { deleteResult, getSavedResults } from '../../utils/storage';
+import { SavedResult } from '../../utils/types';
 
 const HistoryScreen: React.FC = () => {
   const router = useRouter();

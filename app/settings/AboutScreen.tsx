@@ -1,9 +1,9 @@
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import React from 'react';
+import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { SettingsStackParamList } from '../../utils/types';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'AboutScreen'>;
