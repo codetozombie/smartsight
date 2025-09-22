@@ -38,7 +38,14 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SmartSight to access your camera to capture images for analysis."
+        }
+      ],
+      "onnxruntime-react-native"
     ],
     "experiments": {
       "typedRoutes": true,
