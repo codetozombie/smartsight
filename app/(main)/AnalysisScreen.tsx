@@ -1,5 +1,9 @@
+import { Button } from '@/components/Button';
+import { Colors, Spacing, Typography } from '@/constants/theme';
+import { mockAnalyzeImage, ModelError } from '@/utils/model';
+import { AnalysisResult } from '@/utils/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -10,26 +14,23 @@ import {
   Text,
   View
 } from 'react-native';
-import Button from '../../components/Button';
-import { mockAnalyzeImage, ModelError } from '../../utils/model';
-import { AnalysisResult, AnalysisScreenParams } from '../../utils/types';
 
-const AnalysisScreen: React.FC = () => {
+export default function AnalysisScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<AnalysisScreenParams>();
+  const params = useLocalSearchParams();
+  const imageUri = typeof params.imageUri === 'string' ? params.imageUri : '';
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  // Animation values
+
   const dotOpacity1 = useRef(new Animated.Value(0.3)).current;
   const dotOpacity2 = useRef(new Animated.Value(0.3)).current;
   const dotOpacity3 = useRef(new Animated.Value(0.3)).current;
   const pulseAnimation = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (params.imageUri) {
+    if (imageUri) {
       startAnalysis();
       startAnimations();
     } else {
@@ -38,19 +39,17 @@ const AnalysisScreen: React.FC = () => {
     }
 
     return () => {
-      // Cleanup animations
       dotOpacity1.stopAnimation();
       dotOpacity2.stopAnimation();
       dotOpacity3.stopAnimation();
       pulseAnimation.stopAnimation();
     };
-  }, [params.imageUri]);
+  }, [imageUri]);
 
   const startAnimations = () => {
-    // Animated dots
     const animateDots = () => {
       const duration = 500;
-      
+
       Animated.sequence([
         Animated.timing(dotOpacity1, {
           toValue: 1,
@@ -89,7 +88,6 @@ const AnalysisScreen: React.FC = () => {
       });
     };
 
-    // Pulse animation for image
     const animatePulse = () => {
       Animated.loop(
         Animated.sequence([
@@ -118,10 +116,7 @@ const AnalysisScreen: React.FC = () => {
       setIsAnalyzing(true);
       setError(null);
       
-      // Use mock analysis for development, replace with real analysis
-      const result = await mockAnalyzeImage(params.imageUri!);
-      // const result = await analyzeImage(params.imageUri!);
-      
+      const result = await mockAnalyzeImage(imageUri);
       setAnalysisResult(result);
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -144,7 +139,7 @@ const AnalysisScreen: React.FC = () => {
   const handleViewResults = () => {
     if (analysisResult) {
       router.push({
-        pathname: '/(main)/ResultsScreen',
+        pathname: '/(main)/ResultScreen',
         params: {
           result: analysisResult.result,
           confidence: analysisResult.confidence.toString(),
@@ -162,13 +157,13 @@ const AnalysisScreen: React.FC = () => {
   const getResultColor = (result: string) => {
     switch (result) {
       case 'healthy':
-        return '#10b981';
+        return Colors.success;
       case 'monitor':
-        return '#f59e0b';
+        return Colors.warning;
       case 'critical':
-        return '#ef4444';
+        return Colors.error;
       default:
-        return '#64748b';
+        return Colors.textSecondary;
     }
   };
 
@@ -188,14 +183,13 @@ const AnalysisScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Image Display */}
         <View style={styles.imageContainer}>
           <Animated.View style={[
             styles.imageWrapper,
             { transform: [{ scale: pulseAnimation }] }
           ]}>
             <Image
-              source={{ uri: params.imageUri }}
+              source={{ uri: imageUri }}
               style={styles.image}
               resizeMode="cover"
             />
@@ -203,7 +197,6 @@ const AnalysisScreen: React.FC = () => {
           </Animated.View>
         </View>
 
-        {/* Analysis Status */}
         <View style={styles.statusContainer}>
           {isAnalyzing ? (
             <>
@@ -215,7 +208,7 @@ const AnalysisScreen: React.FC = () => {
               </Text>
               <ActivityIndicator
                 size="large"
-                color="#06b6d4"
+                color={Colors.primary}
                 style={styles.spinner}
               />
               <Text style={styles.subText}>
@@ -268,30 +261,30 @@ const AnalysisScreen: React.FC = () => {
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingHorizontal: Spacing.large,
+    paddingVertical: Spacing.large,
   },
   imageContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: Spacing.extraLarge,
   },
   imageWrapper: {
     width: 280,
     height: 280,
     borderRadius: 140,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -314,59 +307,57 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: Spacing.extraLarge,
   },
   analyzingText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 20,
+    fontSize: Typography.sizes.xlarge,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.text,
+    marginBottom: Spacing.large,
     textAlign: 'center',
   },
   dot: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#06b6d4',
+    fontSize: Typography.sizes.xlarge,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.primary,
   },
   spinner: {
-    marginVertical: 20,
+    marginVertical: Spacing.large,
   },
   subText: {
-    fontSize: 16,
-    color: '#6b7280',
+    fontSize: Typography.sizes.medium,
+    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
   },
   resultText: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: Typography.sizes.xxlarge,
+    fontWeight: Typography.weights.bold,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.medium,
   },
   confidenceText: {
-    fontSize: 18,
-    color: '#6b7280',
-    marginBottom: 30,
+    fontSize: Typography.sizes.large,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.extraLarge,
     textAlign: 'center',
   },
   errorText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ef4444',
+    fontSize: Typography.sizes.xlarge,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.error,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.medium,
   },
   errorSubText: {
-    fontSize: 16,
-    color: '#6b7280',
+    fontSize: Typography.sizes.medium,
+    color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: Spacing.extraLarge,
     lineHeight: 24,
   },
   actionButton: {
-    marginVertical: 8,
+    marginVertical: Spacing.small,
     minWidth: 200,
   },
 });
-
-export default AnalysisScreen;

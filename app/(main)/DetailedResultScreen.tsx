@@ -9,13 +9,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextStyle,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from 'react-native';
 import Button from '../../components/Button';
 import { deleteRecord, getRecordById } from '../../utils/storage';
 import {
-  DetailedResultScreenParams,
   EyeResult,
   RecommendationConfig,
   SavedRecord
@@ -23,7 +24,7 @@ import {
 
 const DetailedResultScreen: React.FC = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<DetailedResultScreenParams>();
+  const params = useLocalSearchParams();
   
   const [record, setRecord] = useState<SavedRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,29 +33,34 @@ const DetailedResultScreen: React.FC = () => {
 
   useEffect(() => {
     loadRecord();
-  }, [params.recordId]);
+  }, []);
 
   const loadRecord = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      if (params.recordId) {
-        const savedRecord = await getRecordById(params.recordId);
+      const recordId = typeof params.resultId === 'string' ? params.resultId 
+                     : typeof params.recordId === 'string' ? params.recordId 
+                     : null;
+      
+      if (recordId) {
+        const savedRecord = await getRecordById(recordId);
         if (savedRecord) {
           setRecord(savedRecord);
         } else {
-          // Fallback to params if record not found in storage
           const fallbackRecord: SavedRecord = {
-            id: params.recordId,
-            date: params.date,
-            result: params.result as EyeResult,
-            imageUri: params.imageUri,
-            confidence: params.confidence ? parseFloat(params.confidence) : undefined,
-            notes: params.notes,
+            id: recordId,
+            date: typeof params.date === 'string' ? params.date : new Date().toISOString(),
+            result: typeof params.result === 'string' ? params.result as EyeResult : 'healthy',
+            imageUri: typeof params.imageUri === 'string' ? params.imageUri : '',
+            confidence: typeof params.confidence === 'string' ? parseFloat(params.confidence) : undefined,
+            notes: typeof params.notes === 'string' ? params.notes : undefined,
           };
           setRecord(fallbackRecord);
         }
+      } else {
+        setError('No record ID provided');
       }
     } catch (err) {
       console.error('Failed to load record:', err);
@@ -118,7 +124,37 @@ const DetailedResultScreen: React.FC = () => {
           urgencyLevel: 'high',
           followUpDays: 1,
         };
+      default:
+        return {
+          color: '#6b7280',
+          icon: 'help-circle',
+          title: 'Unknown Result',
+          description: 'Unable to determine analysis result.',
+          recommendations: ['Please retake the analysis'],
+          urgencyLevel: 'medium',
+          followUpDays: 7,
+        };
     }
+  };
+
+  // Helper function to get urgency styles - FIX THE DYNAMIC STYLE ACCESS
+  const getUrgencyStyles = (urgencyLevel: string) => {
+    const urgencyBadgeStyles: { [key: string]: ViewStyle } = {
+      low: { backgroundColor: '#d1fae5' },
+      medium: { backgroundColor: '#fef3c7' },
+      high: { backgroundColor: '#fee2e2' },
+    };
+
+    const urgencyTextStyles: { [key: string]: TextStyle } = {
+      low: { color: '#065f46' },
+      medium: { color: '#92400e' },
+      high: { color: '#991b1b' },
+    };
+
+    return {
+      badgeStyle: urgencyBadgeStyles[urgencyLevel] || urgencyBadgeStyles.medium,
+      textStyle: urgencyTextStyles[urgencyLevel] || urgencyTextStyles.medium,
+    };
   };
 
   const handleDeleteRecord = () => {
@@ -177,7 +213,6 @@ const DetailedResultScreen: React.FC = () => {
   };
 
   const handleShareRecord = () => {
-    // Implement sharing functionality
     Alert.alert(
       'Share Record',
       'Sharing functionality will be implemented here.',
@@ -186,22 +221,30 @@ const DetailedResultScreen: React.FC = () => {
   };
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return 'Unknown Date';
+    }
   };
 
   const formatTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return 'Unknown Time';
+    }
   };
 
   if (isLoading) {
@@ -236,6 +279,7 @@ const DetailedResultScreen: React.FC = () => {
   }
 
   const config = getResultConfig(record.result);
+  const urgencyStyles = getUrgencyStyles(config.urgencyLevel);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -252,17 +296,24 @@ const DetailedResultScreen: React.FC = () => {
         </View>
 
         {/* Saved Photo */}
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: record.imageUri }}
-            style={styles.image}
-            resizeMode="cover"
-          />
-          <View style={[styles.resultBadge, { backgroundColor: config.color }]}>
-            <Ionicons name={config.icon as any} size={20} color="#ffffff" />
-            <Text style={styles.resultBadgeText}>{record.result.toUpperCase()}</Text>
+        {record.imageUri ? (
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: record.imageUri }}
+              style={styles.image}
+              resizeMode="cover"
+            />
+            <View style={[styles.resultBadge, { backgroundColor: config.color }]}>
+              <Ionicons name={config.icon as any} size={20} color="#ffffff" />
+              <Text style={styles.resultBadgeText}>{record.result.toUpperCase()}</Text>
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.noImageContainer}>
+            <Ionicons name="image-outline" size={64} color="#9ca3af" />
+            <Text style={styles.noImageText}>No image available</Text>
+          </View>
+        )}
 
         {/* Classification Result */}
         <View style={[styles.classificationCard, { borderColor: config.color }]}>
@@ -305,8 +356,9 @@ const DetailedResultScreen: React.FC = () => {
             <Text style={styles.recommendationsTitle}>Medical Recommendations</Text>
           </View>
           
-          <View style={[styles.urgencyBadge, styles[`urgency${config.urgencyLevel}`]]}>
-            <Text style={[styles.urgencyText, styles[`urgencyText${config.urgencyLevel}`]]}>
+          {/* FIXED: Use helper function instead of dynamic style access */}
+          <View style={[styles.urgencyBadge, urgencyStyles.badgeStyle]}>
+            <Text style={[styles.urgencyText, urgencyStyles.textStyle]}>
               {config.urgencyLevel.toUpperCase()} PRIORITY
             </Text>
           </View>
@@ -357,7 +409,7 @@ const DetailedResultScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - FIXED: Use backgroundColor prop instead of style arrays */}
         <View style={styles.actionContainer}>
           <Button
             title="New Analysis"
@@ -371,16 +423,18 @@ const DetailedResultScreen: React.FC = () => {
               title="Back to History"
               onPress={handleGoBack}
               variant="secondary"
-              style={[styles.actionButton, styles.secondaryButton]}
+              backgroundColor="#64748b"
+              style={styles.actionButton}
             />
 
             <Button
               title={isDeleting ? "Deleting..." : "Delete Record"}
               onPress={handleDeleteRecord}
               variant="secondary"
+              backgroundColor="#ef4444"
               loading={isDeleting}
               disabled={isDeleting}
-              style={[styles.actionButton, styles.deleteButton]}
+              style={styles.actionButton}
             />
           </View>
         </View>
@@ -579,28 +633,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 16,
   },
-  urgencylow: {
-    backgroundColor: '#d1fae5',
-  },
-  urgencymedium: {
-    backgroundColor: '#fef3c7',
-  },
-  urgencyhigh: {
-    backgroundColor: '#fee2e2',
-  },
   urgencyText: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
-  },
-  urgencyTextlow: {
-    color: '#065f46',
-  },
-  urgencyTextmedium: {
-    color: '#92400e',
-  },
-  urgencyTexthigh: {
-    color: '#991b1b',
   },
   recommendationItem: {
     flexDirection: 'row',
@@ -701,13 +737,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  secondaryButton: {
-    backgroundColor: '#64748b',
-    flex: 1,
+  noImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 240,
+    marginBottom: 30,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 120,
+    width: 240,
+    alignSelf: 'center',
   },
-  deleteButton: {
-    backgroundColor: '#ef4444',
-    flex: 1,
+  noImageText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 8,
   },
 });
 

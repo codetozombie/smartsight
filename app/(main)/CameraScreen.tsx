@@ -1,7 +1,8 @@
+import { Button } from '@/components/Button';
 import { Ionicons } from '@expo/vector-icons';
-import { Camera } from 'expo-camera';
+import { CameraType, CameraView, FlashMode, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -11,30 +12,26 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Button from '../../components/Button';
 
 interface CapturedImage {
   uri: string;
 }
 
-const CameraScreen: React.FC = () => {
+export default function CameraScreen() {
   const router = useRouter();
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<CameraView>(null);
   
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [type, setType] = useState(CameraType.back);
-  const [flash, setFlash] = useState(FlashMode.off);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<CameraType>('back');
+  const [flash, setFlash] = useState<FlashMode>('off');
   const [capturedImage, setCapturedImage] = useState<CapturedImage | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
   useEffect(() => {
-    getCameraPermissions();
-  }, []);
-
-  const getCameraPermissions = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
-    setHasPermission(status === 'granted');
-  };
+    if (permission && !permission.granted) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   const handleCapture = async () => {
     if (cameraRef.current && !isCapturing) {
@@ -43,10 +40,11 @@ const CameraScreen: React.FC = () => {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
           base64: false,
-          skipProcessing: false,
         });
         
-        setCapturedImage({ uri: photo.uri });
+        if (photo) {
+          setCapturedImage({ uri: photo.uri });
+        }
       } catch (error) {
         console.error('Error capturing image:', error);
         Alert.alert('Error', 'Failed to capture image. Please try again.');
@@ -74,18 +72,14 @@ const CameraScreen: React.FC = () => {
   };
 
   const toggleCameraType = () => {
-    setType(current => 
-      current === CameraType.back ? CameraType.front : CameraType.back
-    );
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   const toggleFlash = () => {
-    setFlash(current => 
-      current === FlashMode.off ? FlashMode.on : FlashMode.off
-    );
+    setFlash(current => (current === 'off' ? 'on' : 'off'));
   };
 
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>Requesting camera permission...</Text>
@@ -93,10 +87,19 @@ const CameraScreen: React.FC = () => {
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>No access to camera</Text>
+        <Text style={styles.permissionSubText}>
+          We need your permission to access the camera to take pictures for analysis.
+        </Text>
+        <Button
+          title="Grant Permission"
+          onPress={requestPermission}
+          variant="primary"
+          style={styles.permissionButton}
+        />
         <Button
           title="Go Back"
           onPress={handleBack}
@@ -127,13 +130,15 @@ const CameraScreen: React.FC = () => {
                 title="Retake"
                 onPress={handleRetake}
                 variant="secondary"
-                style={[styles.actionButton, styles.retakeButton]}
+                backgroundColor="#f59e0b" // Use backgroundColor prop instead
+                style={styles.actionButton}
               />
               <Button
                 title="Use Image"
                 onPress={handleUseImage}
                 variant="primary"
-                style={[styles.actionButton, styles.useImageButton]}
+                backgroundColor="#10b981" // Use backgroundColor prop instead
+                style={styles.actionButton}
               />
             </View>
           </View>
@@ -144,13 +149,12 @@ const CameraScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Camera
+      <CameraView
         ref={cameraRef}
         style={styles.camera}
-        type={type}
-        flashMode={flash}
+        facing={facing}
+        flash={flash}
       >
-        {/* Overlay with circular cutout */}
         <View style={styles.overlay}>
           <View style={styles.overlayTop} />
           <View style={styles.overlayMiddle}>
@@ -161,7 +165,6 @@ const CameraScreen: React.FC = () => {
           <View style={styles.overlayBottom} />
         </View>
 
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Ionicons name="arrow-back" size={24} color="#ffffff" />
@@ -171,14 +174,13 @@ const CameraScreen: React.FC = () => {
           
           <TouchableOpacity onPress={toggleFlash} style={styles.headerButton}>
             <Ionicons 
-              name={flash === FlashMode.off ? "flash-off" : "flash"} 
+              name={flash === 'off' ? "flash-off" : "flash"} 
               size={24} 
               color="#ffffff" 
             />
           </TouchableOpacity>
         </View>
 
-        {/* Controls */}
         <View style={styles.controls}>
           <TouchableOpacity onPress={toggleCameraType} style={styles.controlButton}>
             <Ionicons name="camera-reverse" size={28} color="#ffffff" />
@@ -195,16 +197,15 @@ const CameraScreen: React.FC = () => {
           <View style={styles.placeholder} />
         </View>
 
-        {/* Instructions */}
         <View style={styles.instructions}>
           <Text style={styles.instructionText}>
-            Position the object within the circle and tap to capture
+            Position your eye within the circle and tap to capture
           </Text>
         </View>
-      </Camera>
+      </CameraView>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -225,10 +226,23 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
+    fontWeight: '600',
+  },
+  permissionSubText: {
+    color: '#ffffff',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 30,
+    opacity: 0.8,
+    lineHeight: 20,
+  },
+  permissionButton: {
+    marginBottom: 15,
+    minWidth: 200,
   },
   backButton: {
-    marginTop: 20,
+    minWidth: 200,
   },
   overlay: {
     position: 'absolute',
@@ -343,7 +357,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
-  // Preview styles
   previewContainer: {
     flex: 1,
   },
@@ -393,12 +406,4 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 10,
   },
-  retakeButton: {
-    backgroundColor: '#f59e0b',
-  },
-  useImageButton: {
-    backgroundColor: '#10b981',
-  },
 });
-
-export default CameraScreen;

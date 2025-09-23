@@ -1,111 +1,178 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { EyeRecord, SavedRecord } from '../types';
-
-const KEYS = {
-  RESULTS: 'eye_results',
-} as const;
-
-const readJSON = async <T>(key: string, fallback: T): Promise<T> => {
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-export const getResults = async (): Promise<EyeRecord[]> => {
-  return readJSON<EyeRecord[]>(KEYS.RESULTS, []);
-};
-
-export const saveResult = async (record: EyeRecord): Promise<void> => {
-  const list = await getResults();
-  const existingIdx = list.findIndex((r) => r.id === record.id);
-  const next =
-    existingIdx >= 0
-      ? [...list.slice(0, existingIdx), record, ...list.slice(existingIdx + 1)]
-      : [record, ...list];
-  await AsyncStorage.setItem(KEYS.RESULTS, JSON.stringify(next));
-};
-
-export const deleteResult = async (id: string): Promise<void> => {
-  const list = await getResults();
-  const next = list.filter((r) => r.id !== id);
-  await AsyncStorage.setItem(KEYS.RESULTS, JSON.stringify(next));
-};
-
-export const clearHistory = async (): Promise<void> => {
-  await AsyncStorage.removeItem(KEYS.RESULTS);
-};
+import { TestResult, UserSettings } from './types';
 
 export const StorageKeys = {
-  ONBOARDING_SEEN: 'onboardingSeen',
-  SAVED_RECORDS: 'savedRecords',
+  ONBOARDING: 'hasCompletedOnboarding',
+  ONBOARDING_SEEN: 'smartsight_onboarding_seen',
+  TEST_RESULTS: 'testResults',
+  SAVED_RESULTS: 'smartsight_saved_results',
+  USER_SETTINGS: 'userSettings',
 } as const;
+
+// Legacy interfaces for compatibility
+export interface SavedRecord {
+  id: string;
+  date: string;
+  result: 'healthy' | 'monitor' | 'critical';
+  imageUri: string;
+  confidence?: number;
+  notes?: string;
+}
+
+export interface SavedResult extends TestResult {
+  id: string;
+  date: string;
+}
+
+// Storage utility functions
+export const setItem = async (key: string, value: string): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(key, value);
+  } catch (error) {
+    console.error(`Failed to save ${key}:`, error);
+    throw error;
+  }
+};
 
 export const getItem = async (key: string): Promise<string | null> => {
   try {
     return await AsyncStorage.getItem(key);
   } catch (error) {
-    console.error(`Error getting item ${key}:`, error);
+    console.error(`Failed to get ${key}:`, error);
     return null;
   }
 };
 
-export const setItem = async (key: string, value: string): Promise<void> => {
+// Test Results Functions
+export const saveTestResult = async (result: TestResult): Promise<void> => {
   try {
-    await AsyncStorage.setItem(key, value);
+    const existingResults = await getTestResults();
+    const updatedResults = [result, ...existingResults];
+    
+    await AsyncStorage.setItem(
+      StorageKeys.TEST_RESULTS,
+      JSON.stringify(updatedResults)
+    );
   } catch (error) {
-    console.error(`Error setting item ${key}:`, error);
+    console.error('Failed to save test result:', error);
+    throw new Error('Failed to save test result');
   }
 };
 
-export const removeItem = async (key: string): Promise<void> => {
+export const getTestResults = async (): Promise<TestResult[]> => {
   try {
-    await AsyncStorage.removeItem(key);
+    const stored = await AsyncStorage.getItem(StorageKeys.TEST_RESULTS);
+    return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.error(`Error removing item ${key}:`, error);
-  }
-};
-
-export const getSavedRecords = async (): Promise<SavedRecord[]> => {
-  try {
-    const recordsJson = await AsyncStorage.getItem(StorageKeys.SAVED_RECORDS);
-    return recordsJson ? JSON.parse(recordsJson) : [];
-  } catch (error) {
-    console.error('Error getting saved records:', error);
+    console.error('Failed to get test results:', error);
     return [];
   }
 };
 
-export const saveRecord = async (record: SavedRecord): Promise<void> => {
+// Saved Results Functions (for DetailedResultScreen)
+export const getSavedResults = async (): Promise<SavedResult[]> => {
   try {
-    const existingRecords = await getSavedRecords();
-    const updatedRecords = [record, ...existingRecords];
-    await AsyncStorage.setItem(StorageKeys.SAVED_RECORDS, JSON.stringify(updatedRecords));
+    const stored = await AsyncStorage.getItem(StorageKeys.SAVED_RESULTS);
+    return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.error('Error saving record:', error);
-    throw new Error('Failed to save record');
+    console.error('Failed to get saved results:', error);
+    return [];
   }
 };
 
-export const deleteRecord = async (recordId: string): Promise<void> => {
+export const getRecordById = async (id: string): Promise<SavedRecord | null> => {
   try {
-    const existingRecords = await getSavedRecords();
-    const filteredRecords = existingRecords.filter(record => record.id !== recordId);
-    await AsyncStorage.setItem(StorageKeys.SAVED_RECORDS, JSON.stringify(filteredRecords));
+    const results = await getSavedResults();
+    const record = results.find(r => r.id === id);
+    return record || null;
   } catch (error) {
-    console.error('Error deleting record:', error);
+    console.error('Failed to get record by ID:', error);
+    return null;
+  }
+};
+
+export const deleteRecord = async (id: string): Promise<void> => {
+  try {
+    const results = await getSavedResults();
+    const filtered = results.filter(result => result.id !== id);
+    
+    await AsyncStorage.setItem(
+      StorageKeys.SAVED_RESULTS,
+      JSON.stringify(filtered)
+    );
+  } catch (error) {
+    console.error('Failed to delete record:', error);
     throw new Error('Failed to delete record');
   }
 };
 
-export const getRecordById = async (recordId: string): Promise<SavedRecord | null> => {
+export const deleteResult = async (id: string): Promise<void> => {
   try {
-    const records = await getSavedRecords();
-    return records.find(record => record.id === recordId) || null;
+    const results = await getTestResults();
+    const filtered = results.filter(result => result.id !== id);
+    
+    await AsyncStorage.setItem(
+      StorageKeys.TEST_RESULTS,
+      JSON.stringify(filtered)
+    );
   } catch (error) {
-    console.error('Error getting record by ID:', error);
+    console.error('Failed to delete test result:', error);
+    throw new Error('Failed to delete test result');
+  }
+};
+
+export const deleteTestResult = async (id: string): Promise<void> => {
+  return deleteResult(id);
+};
+
+export const clearTestResults = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(StorageKeys.TEST_RESULTS);
+  } catch (error) {
+    console.error('Failed to clear test results:', error);
+    throw new Error('Failed to clear test results');
+  }
+};
+
+// User Settings Functions
+export const saveUserSettings = async (settings: UserSettings): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(
+      StorageKeys.USER_SETTINGS,
+      JSON.stringify(settings)
+    );
+  } catch (error) {
+    console.error('Failed to save user settings:', error);
+    throw new Error('Failed to save user settings');
+  }
+};
+
+export const getUserSettings = async (): Promise<UserSettings | null> => {
+  try {
+    const stored = await AsyncStorage.getItem(StorageKeys.USER_SETTINGS);
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.error('Failed to get user settings:', error);
     return null;
+  }
+};
+
+// Onboarding Functions
+export const setOnboardingCompleted = async (): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(StorageKeys.ONBOARDING, 'true');
+  } catch (error) {
+    console.error('Failed to set onboarding completed:', error);
+    throw new Error('Failed to save onboarding status');
+  }
+};
+
+export const isOnboardingCompleted = async (): Promise<boolean> => {
+  try {
+    const completed = await AsyncStorage.getItem(StorageKeys.ONBOARDING);
+    return completed === 'true';
+  } catch (error) {
+    console.error('Failed to check onboarding status:', error);
+    return false;
   }
 };

@@ -1,5 +1,6 @@
+import { useOnboardingStatus } from '@/hooks/useAsyncStorage';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
@@ -10,7 +11,6 @@ import {
   View,
   ViewToken,
 } from 'react-native';
-import { setItem, StorageKeys } from '../../utils/storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -66,10 +66,11 @@ const OnboardingItem: React.FC<OnboardingItemProps> = ({ item }) => {
   );
 };
 
-const OnboardingScreen: React.FC = () => {
+export default function Onboarding() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
+  const { markComplete } = useOnboardingStatus();
 
   const handleViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -100,11 +101,11 @@ const OnboardingScreen: React.FC = () => {
 
   const handleGetStarted = async () => {
     try {
-      await setItem(StorageKeys.ONBOARDING_SEEN, 'true');
-      router.replace('/(main)');
+      await markComplete();
+      router.replace('/(main)/HomeScreen');
     } catch (error) {
-      console.error('Error setting onboarding flag:', error);
-      router.replace('/(main)');
+      console.error('Error completing onboarding:', error);
+      router.replace('/(main)/HomeScreen');
     }
   };
 
@@ -168,7 +169,7 @@ const OnboardingScreen: React.FC = () => {
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -256,12 +257,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-export default function AuthLayout() {
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="SplashScreen" />
-      <Stack.Screen name="Onboarding" />
-    </Stack>
-  );
-}

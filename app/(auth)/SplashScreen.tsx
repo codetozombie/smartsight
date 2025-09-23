@@ -1,77 +1,123 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import Icon from '@/components/Icon';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Strings } from '@/constants/strings';
+import { Colors, Spacing, Typography } from '@/constants/theme';
+import { useOnboardingStatus } from '@/hooks/useAsyncStorage';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-type SplashScreenNavigationProp = {
-  navigate: (screen: 'Onboarding' | '(main)') => void;
-};
-
-const SplashScreen: React.FC = () => {
-  const navigation = useNavigation<SplashScreenNavigationProp>();
+export default function SplashScreen() {
+  const router = useRouter();
+  const { isComplete, isLoading } = useOnboardingStatus();
 
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      try {
-        const onboardingSeen = await AsyncStorage.getItem('onboardingSeen');
-        
-        setTimeout(() => {
-          if (onboardingSeen === 'true') {
-            navigation.navigate('(main)');
-          } else {
-            navigation.navigate('Onboarding');
-          }
-        }, 3000);
-      } catch (error) {
-        console.error('Error checking onboarding status:', error);
-        // Default to onboarding if error occurs
-        setTimeout(() => {
-          navigation.navigate('Onboarding');
-        }, 3000);
-      }
-    };
+    if (!isLoading) {
+      const timer = setTimeout(() => {
+        if (isComplete) {
+          router.replace('/(main)/HomeScreen');
+        } else {
+          router.replace('/(auth)/Onboarding');
+        }
+      }, 2000);
 
-    checkOnboardingStatus();
-  }, [navigation]);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, isComplete, router]);
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
+      <StatusBar style="light" backgroundColor={Colors.primary} />
+      
       <View style={styles.logoContainer}>
-        {/* Replace with your actual logo image */}
-        <Text style={styles.logoText}>SmartSight</Text>
-        {/* Uncomment and use actual logo when available
-        <Image 
-          source={require('../../assets/images/logo.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        */}
+        <View style={styles.iconBackground}>
+          <Icon name="👁️" size={64} color={Colors.white} />
+        </View>
+        <ThemedText style={styles.title}>
+          {Strings.app.name}
+        </ThemedText>
+        <ThemedText style={styles.subtitle}>
+          {Strings.app.tagline}
+        </ThemedText>
       </View>
-    </View>
+
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.white} />
+        <ThemedText style={styles.loadingText}>
+          {Strings.common.loading}
+        </ThemedText>
+      </View>
+
+      <View style={styles.footer}>
+        <ThemedText style={styles.footerText}>
+          {Strings.app.tagline}
+        </ThemedText>
+      </View>
+    </ThemedView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#06b6d4',
-    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: Spacing.large,
+    paddingVertical: Spacing.extraLarge,
   },
   logoContainer: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  logo: {
+  iconBackground: {
     width: 120,
     height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.primaryDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.large,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  title: {
+    fontSize: Typography.sizes.xxxlarge,
+    fontWeight: Typography.weights.bold,
+    color: Colors.white,
+    textAlign: 'center',
+    marginBottom: Spacing.small,
+  },
+  subtitle: {
+    fontSize: Typography.sizes.large,
+    fontWeight: Typography.weights.medium,
+    color: Colors.primaryLight,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginBottom: Spacing.large,
+  },
+  loadingText: {
+    fontSize: Typography.sizes.medium,
+    color: Colors.white,
+    marginTop: Spacing.medium,
+    fontWeight: Typography.weights.medium,
+  },
+  footer: {
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.primaryLight,
+    textAlign: 'center',
+    opacity: 0.8,
   },
 });
-
-export default SplashScreen;

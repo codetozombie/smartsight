@@ -1,48 +1,113 @@
-import { useEffect, useState } from 'react';
-import { getSavedResults, saveResult } from '../utils/storage';
-import { SavedResult } from '../utils/types';
+/**
+ * SmartSight AsyncStorage Hook
+ * Custom hook for managing AsyncStorage operations with React state
+ */
 
-export const useAsyncStorage = () => {
-  const [savedResults, setSavedResults] = useState<SavedResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useState } from 'react';
+import type { TestResult } from '../utils/types';
+
+interface UseAsyncStorageReturn<T> {
+  data: T | null;
+  isLoading: boolean;
+  error: string | null;
+  save: (newData: T) => Promise<void>;
+  remove: () => Promise<void>;
+  refresh: () => Promise<void>;
+}
+
+// Generic AsyncStorage hook
+export function useAsyncStorage<T>(
+  key: string,
+  defaultValue: T | null = null
+): UseAsyncStorageReturn<T> {
+  const [data, setData] = useState<T | null>(defaultValue);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadResults = async () => {
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      setIsLoading(true);
-      setError(null);
-      const results = await getSavedResults();
-      setSavedResults(results);
+      const stored = await AsyncStorage.getItem(key);
+      if (stored !== null) {
+        const parsed = JSON.parse(stored) as T;
+        setData(parsed);
+      } else {
+        setData(defaultValue);
+      }
     } catch (err) {
-      setError('Failed to load results');
-      console.error('Load results error:', err);
+      console.error(`Error loading data for key ${key}:`, err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setData(defaultValue);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [key, defaultValue]);
 
-  const saveNewResult = async (result: SavedResult): Promise<boolean> => {
+  const save = useCallback(async (newData: T) => {
+    setError(null);
+    
     try {
-      setError(null);
-      await saveResult(result);
-      await loadResults(); // Refresh the list
-      return true;
+      await AsyncStorage.setItem(key, JSON.stringify(newData));
+      setData(newData);
     } catch (err) {
-      setError('Failed to save result');
-      console.error('Save result error:', err);
-      return false;
+      console.error(`Error saving data for key ${key}:`, err);
+      setError(err instanceof Error ? err.message : 'Failed to save data');
+      throw err;
     }
-  };
+  }, [key]);
+
+  const remove = useCallback(async () => {
+    setError(null);
+    
+    try {
+      await AsyncStorage.removeItem(key);
+      setData(defaultValue);
+    } catch (err) {
+      console.error(`Error removing data for key ${key}:`, err);
+      setError(err instanceof Error ? err.message : 'Failed to remove data');
+      throw err;
+    }
+  }, [key, defaultValue]);
+
+  const refresh = useCallback(async () => {
+    await loadData();
+  }, [loadData]);
 
   useEffect(() => {
-    loadResults();
-  }, []);
+    loadData();
+  }, [loadData]);
 
   return {
-    savedResults,
+    data,
     isLoading,
     error,
-    saveNewResult,
-    loadResults,
+    save,
+    remove,
+    refresh,
   };
-};
+}
+
+// Specialized hooks
+export function useTestResults() {
+  return useAsyncStorage<TestResult[]>('smartsight_test_results', []);
+}
+
+export function useOnboardingStatus() {
+  const { data, save, isLoading } = useAsyncStorage('smartsight_onboarding_complete', false);
+  
+  const markComplete = useCallback(async () => {
+    await save(true);
+  }, [save]);
+  
+  return {
+    isComplete: data || false,
+    markComplete,
+    isLoading,
+  };
+}
+
+// Legacy export for backward compatibility
+export { useAsyncStorage as default };

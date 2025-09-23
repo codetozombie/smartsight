@@ -1,47 +1,45 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+/**
+ * SmartSight Root Layout
+ * Main app navigation structure with authentication flow
+ */
 
-export default function MainLayout() {
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+import { useOnboardingStatus } from '../hooks/useAsyncStorage';
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  const { isComplete, isLoading } = useOnboardingStatus();
+
+  useEffect(() => {
+    if (!isLoading) {
+      // Hide splash screen once we know onboarding status
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  if (isLoading) {
+    // Keep splash screen visible while loading
+    return null;
+  }
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#06b6d4',
-        tabBarInactiveTintColor: '#64748b',
-        tabBarStyle: {
-          backgroundColor: '#ffffff',
-          borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="HomeScreen"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="CameraScreen"
-        options={{
-          title: 'Camera',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="camera-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="HistoryScreen"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false }}>
+      {!isComplete ? (
+        // Authentication flow
+        <>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </>
+      ) : (
+        // Main app flow
+        <>
+          <Stack.Screen name="(main)" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
+        </>
+      )}
+    </Stack>
   );
 }

@@ -1,424 +1,444 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import {
-  Alert,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import Button from '../../components/Button';
-import { useAsyncStorage } from '../../hooks/useAsyncStorage';
-import { EyeResult, ResultDisplayConfig, ResultScreenParams, SavedResult } from '../../utils/types';
+import { StatusBar } from 'expo-status-bar';
+import { Alert, Image, ScrollView, Share, StyleSheet, View } from 'react-native';
 
-const ResultScreen: React.FC = () => {
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { Header } from '@/components/Header';
+import Icon from '@/components/Icon';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Strings } from '@/constants/strings';
+import { Colors, Spacing, Typography } from '@/constants/theme';
+
+export default function ResultScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<ResultScreenParams>();
-  const { saveNewResult } = useAsyncStorage();
-  
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const { imageUri, prediction, confidence, details } = useLocalSearchParams<{
+    imageUri: string;
+    prediction: string;
+    confidence: string;
+    details: string;
+  }>();
 
-  const resultConfig: Record<EyeResult, ResultDisplayConfig> = {
-    healthy: {
-      icon: 'checkmark-circle',
-      color: '#10b981',
-      title: 'Healthy Eye Detected',
-      description: 'Your eye analysis shows normal, healthy patterns. No immediate concerns detected.',
-      recommendations: [
-        'Continue regular eye check-ups',
-        'Maintain good eye hygiene',
-        'Protect eyes from UV light',
-        'Take regular breaks from screens',
-      ],
-    },
-    monitor: {
-      icon: 'warning',
-      color: '#f59e0b',
-      title: 'Monitor Recommended',
-      description: 'Some patterns detected that may require monitoring. Consider consulting an eye care professional.',
-      recommendations: [
-        'Schedule an eye examination',
-        'Monitor any symptoms',
-        'Avoid eye strain',
-        'Follow up in 2-4 weeks',
-      ],
-    },
-    critical: {
-      icon: 'close-circle',
-      color: '#ef4444',
-      title: 'Immediate Attention Needed',
-      description: 'Critical patterns detected that require immediate professional attention.',
-      recommendations: [
-        'Contact an eye care professional immediately',
-        'Do not delay seeking medical attention',
-        'Avoid activities that strain your eyes',
-        'Keep a record of any symptoms',
-      ],
-    },
+  const confidenceValue = parseFloat(confidence || '0');
+  const analysisDetails = details ? JSON.parse(details) : {};
+
+  const getConfidenceColor = (conf: number) => {
+    if (conf > 0.8) return Colors.success;
+    if (conf > 0.6) return Colors.warning;
+    return Colors.error;
   };
 
-  const currentResult = params.result as EyeResult;
-  const confidence = parseFloat(params.confidence);
-  const config = resultConfig[currentResult];
+  const getConfidenceText = (conf: number) => {
+    if (conf > 0.8) return Strings.analysis.highConfidence;
+    if (conf > 0.6) return Strings.analysis.mediumConfidence;
+    return Strings.analysis.lowConfidence;
+  };
 
-  const handleSaveResult = async () => {
+  const getRecommendations = (pred: string, conf: number) => {
+    if (conf < 0.6) {
+      return [
+        Strings.results.lowConfidenceRec1,
+        Strings.results.lowConfidenceRec2,
+        Strings.results.lowConfidenceRec3,
+      ];
+    }
+    
+    // You can add more specific recommendations based on the prediction
+    return [
+      Strings.results.generalRec1,
+      Strings.results.generalRec2,
+      Strings.results.generalRec3,
+    ];
+  };
+
+  const handleShare = async () => {
     try {
-      setIsSaving(true);
+      const message = `${Strings.results.shareMessage}\n\n${Strings.analysis.prediction}: ${prediction}\n${Strings.analysis.confidence}: ${Math.round(confidenceValue * 100)}%\n\n${Strings.appName}`;
       
-      const resultToSave: SavedResult = {
-        id: Date.now().toString(),
-        result: currentResult,
-        confidence,
-        timestamp: params.timestamp,
-        imageUri: params.imageUri,
-      };
-
-      const success = await saveNewResult(resultToSave);
-      
-      if (success) {
-        setIsSaved(true);
-        Alert.alert(
-          'Result Saved',
-          'Your analysis result has been saved successfully.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          'Save Failed',
-          'Failed to save the result. Please try again.',
-          [{ text: 'OK' }]
-        );
-      }
+      await Share.share({
+        message,
+        title: Strings.results.shareTitle,
+      });
     } catch (error) {
-      console.error('Save result error:', error);
-      Alert.alert(
-        'Save Failed',
-        'An error occurred while saving the result.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsSaving(false);
+      console.error('Error sharing:', error);
+      Alert.alert(Strings.errors.shareError, Strings.errors.tryAgain);
     }
   };
 
-  const handleRetake = () => {
+  const handleRetakePhoto = () => {
     router.push('/(main)/CameraScreen');
-  };
-
-  const handleGoHome = () => {
-    router.push('/(main)/HomeScreen');
   };
 
   const handleViewHistory = () => {
     router.push('/(main)/HistoryScreen');
   };
 
-  const getConfidenceLevel = (confidence: number): string => {
-    if (confidence >= 0.9) return 'Very High';
-    if (confidence >= 0.8) return 'High';
-    if (confidence >= 0.7) return 'Medium';
-    return 'Low';
-  };
-
-  const getConfidenceColor = (confidence: number): string => {
-    if (confidence >= 0.8) return '#10b981';
-    if (confidence >= 0.6) return '#f59e0b';
-    return '#ef4444';
-  };
+  const recommendations = getRecommendations(prediction || '', confidenceValue);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleGoHome} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#64748b" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Analysis Results</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        {/* Image */}
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: params.imageUri }}
-            style={styles.image}
-            resizeMode="cover"
+    <ThemedView style={styles.container}>
+      <StatusBar style="dark" backgroundColor={Colors.background} />
+      
+      <Header
+        title={Strings.results.title}
+        showBackButton={true}
+        onBack={() => router.back()}
+        rightComponent={
+          <Button
+            title={Strings.common.share}
+            variant="ghost"
+            onPress={handleShare}
+            style={styles.shareButton}
           />
-        </View>
+        }
+      />
 
-        {/* Result Status */}
-        <View style={[styles.resultCard, { borderColor: config.color }]}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Image */}
+        {imageUri && (
+          <Card style={styles.imageCard}>
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.image}
+              resizeMode="cover"
+            />
+          </Card>
+        )}
+
+        {/* Main Result */}
+        <Card style={styles.resultCard}>
           <View style={styles.resultHeader}>
-            <Ionicons name={config.icon as any} size={48} color={config.color} />
-            <Text style={[styles.resultTitle, { color: config.color }]}>
-              {config.title}
-            </Text>
+            <View style={[
+              styles.statusIcon,
+              { backgroundColor: getConfidenceColor(confidenceValue) }
+            ]}>
+              <Icon 
+                name={confidenceValue > 0.8 ? "check" : confidenceValue > 0.6 ? "warning" : "error"} 
+                size={32} 
+                color={Colors.white} 
+              />
+            </View>
+            <ThemedText style={styles.resultTitle}>
+              {Strings.results.analysisComplete}
+            </ThemedText>
           </View>
-          
-          <Text style={styles.resultDescription}>
-            {config.description}
-          </Text>
 
-          {/* Confidence Score */}
+          <View style={styles.predictionContainer}>
+            <ThemedText style={styles.predictionLabel}>
+              {Strings.analysis.prediction}
+            </ThemedText>
+            <ThemedText style={styles.predictionText}>
+              {prediction}
+            </ThemedText>
+          </View>
+
           <View style={styles.confidenceContainer}>
-            <Text style={styles.confidenceLabel}>Confidence Level</Text>
+            <View style={styles.confidenceHeader}>
+              <ThemedText style={styles.confidenceLabel}>
+                {Strings.analysis.confidence}
+              </ThemedText>
+              <View style={[
+                styles.confidenceBadge,
+                { backgroundColor: getConfidenceColor(confidenceValue) }
+              ]}>
+                <ThemedText style={styles.confidenceValue}>
+                  {Math.round(confidenceValue * 100)}%
+                </ThemedText>
+              </View>
+            </View>
+            
             <View style={styles.confidenceBar}>
-              <View
+              <View 
                 style={[
                   styles.confidenceFill,
-                  {
-                    width: `${confidence * 100}%`,
-                    backgroundColor: getConfidenceColor(confidence),
-                  },
+                  { 
+                    width: `${confidenceValue * 100}%`,
+                    backgroundColor: getConfidenceColor(confidenceValue)
+                  }
                 ]}
               />
             </View>
-            <View style={styles.confidenceInfo}>
-              <Text style={[styles.confidenceText, { color: getConfidenceColor(confidence) }]}>
-                {Math.round(confidence * 100)}% ({getConfidenceLevel(confidence)})
-              </Text>
-            </View>
+            
+            <ThemedText style={styles.confidenceDescription}>
+              {getConfidenceText(confidenceValue)}
+            </ThemedText>
           </View>
-        </View>
+        </Card>
 
         {/* Recommendations */}
-        <View style={styles.recommendationsCard}>
-          <Text style={styles.recommendationsTitle}>Recommendations</Text>
-          {config.recommendations.map((recommendation, index) => (
-            <View key={index} style={styles.recommendationItem}>
-              <Ionicons name="checkmark" size={16} color={config.color} />
-              <Text style={styles.recommendationText}>{recommendation}</Text>
-            </View>
-          ))}
-        </View>
+        <Card style={styles.recommendationsCard}>
+          <View style={styles.sectionHeader}>
+            <Icon name="info" size={24} color={Colors.primary} />
+            <ThemedText style={styles.sectionTitle}>
+              {Strings.results.recommendations}
+            </ThemedText>
+          </View>
+          
+          <View style={styles.recommendationsList}>
+            {recommendations.map((rec, index) => (
+              <View key={index} style={styles.recommendationItem}>
+                <View style={styles.bulletPoint} />
+                <ThemedText style={styles.recommendationText}>
+                  {rec}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        </Card>
 
-        {/* Timestamp */}
-        <View style={styles.timestampContainer}>
-          <Text style={styles.timestampText}>
-            Analyzed on {new Date(params.timestamp).toLocaleString()}
-          </Text>
-        </View>
+        {/* Analysis Details */}
+        {analysisDetails && Object.keys(analysisDetails).length > 0 && (
+          <Card style={styles.detailsCard}>
+            <View style={styles.sectionHeader}>
+              <Icon name="search" size={24} color={Colors.primary} />
+              <ThemedText style={styles.sectionTitle}>
+                {Strings.results.technicalDetails}
+              </ThemedText>
+            </View>
+            
+            <View style={styles.detailsContainer}>
+              {Object.entries(analysisDetails).map(([key, value]) => (
+                <View key={key} style={styles.detailItem}>
+                  <ThemedText style={styles.detailKey}>
+                    {key.charAt(0).toUpperCase() + key.slice(1)}:
+                  </ThemedText>
+                  <ThemedText style={styles.detailValue}>
+                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* Disclaimer */}
+        <Card style={styles.disclaimerCard} variant="outlined">
+          <View style={styles.disclaimerHeader}>
+            <Icon name="warning" size={20} color={Colors.warning} />
+            <ThemedText style={styles.disclaimerTitle}>
+              {Strings.results.disclaimer}
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.disclaimerText}>
+            {Strings.results.disclaimerText}
+          </ThemedText>
+        </Card>
 
         {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
+        <View style={styles.actionButtons}>
           <Button
-            title={isSaved ? "Result Saved ✓" : "Save Result"}
-            onPress={handleSaveResult}
+            title={Strings.results.takeAnother}
             variant="primary"
-            loading={isSaving}
-            disabled={isSaved}
-            style={[
-              styles.actionButton,
-              styles.saveButton,
-              isSaved && styles.savedButton,
-            ]}
+            onPress={handleRetakePhoto}
+            style={styles.actionButton}
           />
-
-          <View style={styles.secondaryButtonsContainer}>
-            <Button
-              title="Retake"
-              onPress={handleRetake}
-              variant="secondary"
-              style={[styles.actionButton, styles.retakeButton]}
-            />
-
-            <Button
-              title="Home"
-              onPress={handleGoHome}
-              variant="secondary"
-              style={[styles.actionButton, styles.homeButton]}
-            />
-          </View>
-
-          {isSaved && (
-            <Button
-              title="View History"
-              onPress={handleViewHistory}
-              variant="tertiary"
-              style={styles.actionButton}
-            />
-          )}
+          <Button
+            title={Strings.results.viewHistory}
+            variant="outline"
+            onPress={handleViewHistory}
+            style={styles.actionButton}
+          />
         </View>
+
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </SafeAreaView>
+    </ThemedView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: Spacing.medium,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 20,
+  shareButton: {
+    paddingHorizontal: 0,
+    minWidth: 60,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  placeholder: {
-    width: 40,
-  },
-  imageContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
+  imageCard: {
+    marginTop: Spacing.medium,
+    marginBottom: Spacing.large,
+    padding: 0,
+    overflow: 'hidden',
   },
   image: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 4,
-    borderColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
   },
   resultCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: Spacing.large,
   },
   resultHeader: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.large,
+  },
+  statusIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.medium,
   },
   resultTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: Typography.sizes.large,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.text,
     textAlign: 'center',
-    marginTop: 12,
   },
-  resultDescription: {
-    fontSize: 16,
-    color: '#6b7280',
+  predictionContainer: {
+    marginBottom: Spacing.large,
+    alignItems: 'center',
+  },
+  predictionLabel: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
+    marginBottom: Spacing.small,
+  },
+  predictionText: {
+    fontSize: Typography.sizes.xxlarge,
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 20,
   },
   confidenceContainer: {
-    marginTop: 16,
+    marginBottom: Spacing.medium,
+  },
+  confidenceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.small,
   },
   confidenceLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontSize: Typography.sizes.medium,
+    color: Colors.text,
+    fontWeight: Typography.weights.medium,
+  },
+  confidenceBadge: {
+    paddingHorizontal: Spacing.medium,
+    paddingVertical: Spacing.small,
+    borderRadius: 16,
+  },
+  confidenceValue: {
+    fontSize: Typography.sizes.small,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.white,
   },
   confidenceBar: {
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: Colors.border,
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: Spacing.small,
   },
   confidenceFill: {
     height: '100%',
     borderRadius: 4,
   },
-  confidenceInfo: {
-    alignItems: 'flex-end',
-  },
-  confidenceText: {
-    fontSize: 14,
-    fontWeight: '600',
+  confidenceDescription: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   recommendationsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: Spacing.large,
   },
-  recommendationsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 16,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.medium,
+  },
+  sectionTitle: {
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.text,
+    marginLeft: Spacing.small,
+  },
+  recommendationsList: {
+    gap: Spacing.small,
   },
   recommendationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    paddingVertical: 2,
+  },
+  bulletPoint: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    marginTop: 8,
+    marginRight: Spacing.small,
   },
   recommendationText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 12,
     flex: 1,
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
     lineHeight: 20,
   },
-  timestampContainer: {
+  detailsCard: {
+    marginBottom: Spacing.large,
+  },
+  detailsContainer: {
+    gap: Spacing.small,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.small,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  detailKey: {
+    fontSize: Typography.sizes.small,
+    color: Colors.text,
+    fontWeight: Typography.weights.medium,
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    flex: 2,
+    textAlign: 'right',
+  },
+  disclaimerCard: {
+    marginBottom: Spacing.large,
+    borderColor: Colors.warning,
+    backgroundColor: Colors.warningLight,
+  },
+  disclaimerHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: Spacing.small,
   },
-  timestampText: {
-    fontSize: 12,
-    color: '#9ca3af',
+  disclaimerTitle: {
+    fontSize: Typography.sizes.small,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.warningDark,
+    marginLeft: Spacing.small,
   },
-  buttonContainer: {
-    gap: 12,
+  disclaimerText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.warningDark,
+    lineHeight: 18,
+  },
+  actionButtons: {
+    gap: Spacing.medium,
+    marginBottom: Spacing.medium,
   },
   actionButton: {
-    marginVertical: 4,
+    marginHorizontal: 0,
   },
-  saveButton: {
-    backgroundColor: '#06b6d4',
-  },
-  savedButton: {
-    backgroundColor: '#10b981',
-  },
-  secondaryButtonsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  retakeButton: {
-    backgroundColor: '#f59e0b',
-    flex: 1,
-  },
-  homeButton: {
-    backgroundColor: '#64748b',
-    flex: 1,
+  bottomSpacing: {
+    height: Spacing.extraLarge,
   },
 });
-
-export default ResultScreen;
