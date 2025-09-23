@@ -3,12 +3,12 @@
  * Reusable header with title, back button, and actions
  */
 
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ThemedText } from './themed-text';
-import Icon from './Icon';
 import { Colors, Spacing, Typography } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import Icon from './Icon';
+import { ThemedText } from './themed-text';
 
 export interface HeaderProps {
   title: string;
