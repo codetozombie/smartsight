@@ -122,6 +122,7 @@ const styles = StyleSheet.create({
   },
   ghost: {
     backgroundColor: 'transparent',
+    paddingHorizontal: 8, // Reduce padding for ghost buttons
   },
   
   // Text styles
@@ -151,6 +152,7 @@ const styles = StyleSheet.create({
   },
   ghostText: {
     color: Colors.primary,
+    fontSize: 14, // Smaller font for ghost buttons
   },
   
   // States

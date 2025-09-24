@@ -57,8 +57,8 @@ export default function ResultScreen() {
       const message = `${Strings.results.shareMessage}\n\n${Strings.analysis.prediction}: ${prediction}\n${Strings.analysis.confidence}: ${Math.round(confidenceValue * 100)}%\n\n${Strings.appName}`;
       
       await Share.share({
-        message,
-        title: Strings.results.shareTitle,
+        message: message,
+        title: Strings.results.title,
       });
     } catch (error) {
       console.error('Error sharing:', error);

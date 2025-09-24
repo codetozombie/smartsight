@@ -1,38 +1,38 @@
-import { Colors, Spacing, Typography } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Button } from './Button';
-import Icon from './Icon';
-import { ThemedText } from './themed-text';
+import { StyleSheet, Text, View } from 'react-native';
+import Button from './Button';
 
 export interface EmptyStateProps {
-  icon?: string;
   title: string;
-  description: string;
-  actionTitle?: string;
-  onAction?: () => void;
+  message: string;
+  actionText: string; // Add this missing prop
+  onAction: () => void;
+  icon?: string;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon = '📭',
+const EmptyState: React.FC<EmptyStateProps> = ({
   title,
-  description,
-  actionTitle,
+  message,
+  actionText,
   onAction,
+  icon = 'document-outline',
 }) => {
   return (
     <View style={styles.container}>
-      <Icon name={icon} size={64} color={Colors.textSecondary} />
-      <ThemedText style={styles.title}>{title}</ThemedText>
-      <ThemedText style={styles.description}>{description}</ThemedText>
-      {actionTitle && onAction && (
-        <Button
-          title={actionTitle}
-          onPress={onAction}
-          variant="primary"
-          style={styles.button}
-        />
-      )}
+      <View style={styles.iconContainer}>
+        <Ionicons name={icon as any} size={64} color="#9ca3af" />
+      </View>
+
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.message}>{message}</Text>
+
+      <Button
+        title={actionText}
+        onPress={onAction}
+        variant="primary"
+        style={styles.actionButton}
+      />
     </View>
   );
 };
@@ -42,24 +42,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.large,
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  iconContainer: {
+    marginBottom: 24,
   },
   title: {
-    fontSize: Typography.sizes.xlarge,
-    fontWeight: Typography.weights.semibold,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1f2937',
     textAlign: 'center',
-    marginTop: Spacing.large,
-    marginBottom: Spacing.small,
+    marginBottom: 12,
   },
-  description: {
-    fontSize: Typography.sizes.medium,
-    color: Colors.textSecondary,
+  message: {
+    fontSize: 16,
+    color: '#6b7280',
     textAlign: 'center',
-    marginBottom: Spacing.large,
-    lineHeight: Typography.lineHeights.medium,
+    lineHeight: 24,
+    marginBottom: 32,
   },
-  button: {
-    marginTop: Spacing.medium,
+  actionButton: {
+    minWidth: 160,
   },
 });
 

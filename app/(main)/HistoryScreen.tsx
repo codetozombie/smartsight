@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
@@ -11,10 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import HistoryItem from '../../components/HistoryItem';
-import { deleteResult, getSavedResults } from '../../utils/storage';
+import { deleteResult, getResults } from '../../utils/storage';
 import { SavedResult } from '../../utils/types';
 
 const HistoryScreen: React.FC = () => {
@@ -25,18 +25,12 @@ const HistoryScreen: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadResults = async (showRefreshing = false) => {
+  const loadResults = async () => {
     try {
-      if (showRefreshing) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
       setError(null);
-
-      const savedResults = await getSavedResults();
+      const savedResults = await getResults();
       
-      // Sort by timestamp (newest first)
+      // Sort by timestamp (most recent first)
       const sortedResults = savedResults.sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
@@ -52,7 +46,8 @@ const HistoryScreen: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    loadResults(true);
+    setIsRefreshing(true);
+    loadResults();
   };
 
   const handleResultPress = (result: SavedResult) => {
@@ -71,8 +66,8 @@ const HistoryScreen: React.FC = () => {
 
   const handleDeleteResult = async (resultId: string) => {
     Alert.alert(
-      'Delete Result',
-      'Are you sure you want to delete this result? This action cannot be undone.',
+      'Delete Analysis',
+      'Are you sure you want to delete this analysis? This action cannot be undone.',
       [
         {
           text: 'Cancel',
@@ -84,11 +79,10 @@ const HistoryScreen: React.FC = () => {
           onPress: async () => {
             try {
               await deleteResult(resultId);
-              await loadResults();
-              Alert.alert('Success', 'Result deleted successfully.');
-            } catch (error) {
-              console.error('Delete failed:', error);
-              Alert.alert('Error', 'Failed to delete result. Please try again.');
+              await loadResults(); // Refresh the list
+            } catch (err) {
+              console.error('Failed to delete result:', err);
+              Alert.alert('Error', 'Failed to delete analysis. Please try again.');
             }
           },
         },
@@ -102,9 +96,9 @@ const HistoryScreen: React.FC = () => {
 
   const getResultsStats = () => {
     const total = results.length;
-    const healthy = results.filter(r => r.result === 'healthy').length;
-    const monitor = results.filter(r => r.result === 'monitor').length;
-    const critical = results.filter(r => r.result === 'critical').length;
+    const healthy = results.filter(r => (r.result || r.outcome) === 'healthy').length;
+    const monitor = results.filter(r => (r.result || r.outcome) === 'monitor').length;
+    const critical = results.filter(r => (r.result || r.outcome) === 'critical').length;
 
     return { total, healthy, monitor, critical };
   };
@@ -120,42 +114,28 @@ const HistoryScreen: React.FC = () => {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <View style={styles.header}>
+      <View style={styles.titleContainer}>
         <Text style={styles.title}>Analysis History</Text>
-        <TouchableOpacity 
-          onPress={handleStartNewAnalysis}
-          style={styles.addButton}
-        >
-          <Ionicons name="add" size={24} color="#ffffff" />
-        </TouchableOpacity>
+        <Text style={styles.subtitle}>
+          {results.length} {results.length === 1 ? 'analysis' : 'analyses'} performed
+        </Text>
       </View>
 
       {results.length > 0 && (
         <View style={styles.statsContainer}>
-          <Text style={styles.statsTitle}>Summary</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.total}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#10b981' }]}>
-                {stats.healthy}
-              </Text>
-              <Text style={styles.statLabel}>Healthy</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#f59e0b' }]}>
-                {stats.monitor}
-              </Text>
-              <Text style={styles.statLabel}>Monitor</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#ef4444' }]}>
-                {stats.critical}
-              </Text>
-              <Text style={styles.statLabel}>Critical</Text>
-            </View>
+          <View style={[styles.statItem, { backgroundColor: '#d1fae5' }]}>
+            <Text style={[styles.statNumber, { color: '#065f46' }]}>{stats.healthy}</Text>
+            <Text style={[styles.statLabel, { color: '#065f46' }]}>Healthy</Text>
+          </View>
+          
+          <View style={[styles.statItem, { backgroundColor: '#fef3c7' }]}>
+            <Text style={[styles.statNumber, { color: '#92400e' }]}>{stats.monitor}</Text>
+            <Text style={[styles.statLabel, { color: '#92400e' }]}>Monitor</Text>
+          </View>
+          
+          <View style={[styles.statItem, { backgroundColor: '#fee2e2' }]}>
+            <Text style={[styles.statNumber, { color: '#991b1b' }]}>{stats.critical}</Text>
+            <Text style={[styles.statLabel, { color: '#991b1b' }]}>Critical</Text>
           </View>
         </View>
       )}
@@ -172,6 +152,7 @@ const HistoryScreen: React.FC = () => {
       message="You haven't performed any eye analyses yet. Start your first analysis to see your results here."
       actionText="Start Analysis"
       onAction={handleStartNewAnalysis}
+      icon="eye-outline"
     />
   );
 
@@ -180,14 +161,14 @@ const HistoryScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color="#ef4444" />
-          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorTitle}>Failed to Load History</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <Button
-            title="Try Again"
-            onPress={() => loadResults()}
-            variant="primary"
+          <TouchableOpacity
             style={styles.retryButton}
-          />
+            onPress={loadResults}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -195,26 +176,32 @@ const HistoryScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        data={results}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={!isLoading ? renderEmptyState : null}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor="#06b6d4"
-            colors={['#06b6d4']}
-          />
-        }
-        contentContainerStyle={[
-          styles.listContent,
-          results.length === 0 && styles.emptyListContent,
-        ]}
-        showsVerticalScrollIndicator={false}
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#06b6d4" />
+          <Text style={styles.loadingText}>Loading history...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={results}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#06b6d4']}
+              tintColor="#06b6d4"
+            />
+          }
+          contentContainerStyle={
+            results.length === 0 ? styles.emptyContainer : styles.listContainer
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -224,80 +211,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  listContent: {
-    paddingBottom: 20,
-  },
-  emptyListContent: {
-    flexGrow: 1,
-  },
-  headerContainer: {
-    paddingBottom: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#06b6d4',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  statsContainer: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statsTitle: {
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  statLabel: {
-    fontSize: 12,
     color: '#6b7280',
-    marginTop: 4,
   },
   errorContainer: {
     flex: 1,
@@ -321,7 +243,60 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   retryButton: {
-    minWidth: 120,
+    backgroundColor: '#06b6d4',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  emptyContainer: {
+    flex: 1,
+  },
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  titleContainer: {
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
 

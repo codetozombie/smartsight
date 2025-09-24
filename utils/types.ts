@@ -21,16 +21,19 @@ export interface AnalysisResult {
   timestamp: string;
   imageUri: string;
   details?: {
-    processedAt: string;
-    modelVersion: string;
+    processedAt?: string;
+    modelVersion?: string;
     processing_time: number;
     [key: string]: any;
   };
 }
 
+// Fix SavedResult to include all needed properties
 export interface SavedResult extends TestResult {
   id: string;
   date: string;
+  result: EyeResult; // Add this for compatibility
+  notes?: string;   // Add notes property
 }
 
 export interface SavedRecord {
@@ -57,7 +60,7 @@ export interface RecommendationConfig {
   followUpDays: number;
 }
 
-// Navigation parameter types - Fix constraint issues
+// Navigation parameter types
 export interface CameraScreenParams {
   returnTo?: string;
 }
@@ -73,7 +76,6 @@ export interface ResultScreenParams {
   imageUri: string;
 }
 
-// Fix this interface to work with Expo Router constraints
 export type DetailedResultScreenParams = {
   resultId?: string;
   recordId?: string;
