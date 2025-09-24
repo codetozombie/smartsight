@@ -1,41 +1,147 @@
+import { Colors, Spacing, Typography } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface SettingsOption {
   id: string;
   title: string;
-  screen: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  action: () => void;
+  showArrow?: boolean;
 }
 
 const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
+
+  const handleLanguageChange = () => {
+    Alert.alert('Change Language', 'Language settings coming soon!');
+  };
+
+  const handlePrivacyPolicy = () => {
+    Alert.alert('Privacy Policy', 'Privacy policy will be displayed here.');
+  };
+
+  const handleAbout = () => {
+    Alert.alert(
+      'About SmartSight',
+      'SmartSight v1.0.0\n\nAI-powered eye health analysis for early detection and monitoring.\n\nDeveloped with ❤️ for better eye health.'
+    );
+  };
+
+  const handleClearHistory = () => {
+    Alert.alert(
+      'Clear History',
+      'This will permanently delete all your analysis history. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            // Add your clear history logic here
+            Alert.alert('Success', 'Analysis history has been cleared.');
+          },
+        },
+      ]
+    );
+  };
 
   const settingsOptions: SettingsOption[] = [
-    { id: '1', title: 'Change Language', screen: 'ChangeLanguage' },
-    { id: '2', title: 'Privacy Policy', screen: 'PrivacyPolicy' },
-    { id: '3', title: 'About', screen: 'About' },
-    { id: '4', title: 'Clear History', screen: 'ClearHistory' },
+    { 
+      id: '1', 
+      title: 'Change Language', 
+      icon: 'language-outline',
+      action: handleLanguageChange 
+    },
+    { 
+      id: '2', 
+      title: 'Privacy Policy', 
+      icon: 'shield-checkmark-outline',
+      action: handlePrivacyPolicy 
+    },
+    { 
+      id: '3', 
+      title: 'About', 
+      icon: 'information-circle-outline',
+      action: handleAbout 
+    },
+    { 
+      id: '4', 
+      title: 'Clear History', 
+      icon: 'trash-outline',
+      action: handleClearHistory,
+      showArrow: false
+    },
   ];
-
-  const handleOptionPress = (screen: string) => {
-    navigation.navigate(screen as never);
-  };
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Settings</Text>
-        {settingsOptions.map((option) => (
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>General</Text>
+          {settingsOptions.slice(0, 2).map((option) => (
+            <TouchableOpacity
+              key={option.id}
+              style={styles.optionItem}
+              onPress={option.action}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionLeft}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name={option.icon} size={20} color={Colors.primary} />
+                </View>
+                <Text style={styles.optionText}>{option.title}</Text>
+              </View>
+              {option.showArrow !== false && (
+                <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
           <TouchableOpacity
-            key={option.id}
             style={styles.optionItem}
-            onPress={() => handleOptionPress(option.screen)}
+            onPress={settingsOptions[2].action}
+            activeOpacity={0.7}
           >
-            <Text style={styles.optionText}>{option.title}</Text>
-            <Text style={styles.arrow}>›</Text>
+            <View style={styles.optionLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name={settingsOptions[2].icon} size={20} color={Colors.primary} />
+              </View>
+              <Text style={styles.optionText}>{settingsOptions[2].title}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
-        ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data</Text>
+          <TouchableOpacity
+            style={[styles.optionItem, styles.dangerOption]}
+            onPress={settingsOptions[3].action}
+            activeOpacity={0.7}
+          >
+            <View style={styles.optionLeft}>
+              <View style={[styles.iconContainer, styles.dangerIconContainer]}>
+                <Ionicons name={settingsOptions[3].icon} size={20} color={Colors.error} />
+              </View>
+              <Text style={[styles.optionText, styles.dangerText]}>{settingsOptions[3].title}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>SmartSight v1.0.0</Text>
+          <Text style={styles.footerSubText}>
+            Made with ❤️ for better eye health
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -44,42 +150,90 @@ const SettingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    padding: Spacing.medium,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    color: '#1f2937',
+    fontSize: Typography.sizes.xxlarge,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.extraLarge,
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  section: {
+    marginBottom: Spacing.extraLarge,
+  },
+  sectionTitle: {
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.text,
+    marginBottom: Spacing.medium,
+    marginLeft: Spacing.small,
   },
   optionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    padding: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    shadowColor: '#000',
+    backgroundColor: Colors.white,
+    padding: Spacing.medium,
+    marginBottom: Spacing.small,
+    borderRadius: 12,
+    shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 2,
   },
-  optionText: {
-    fontSize: 16,
-    color: '#374151',
+  optionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  arrow: {
-    fontSize: 18,
-    color: '#9ca3af',
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.medium,
+  },
+  dangerIconContainer: {
+    backgroundColor: `${Colors.error}15`,
+  },
+  optionText: {
+    fontSize: Typography.sizes.medium,
+    color: Colors.text,
+    fontWeight: Typography.weights.medium,
+  },
+  dangerOption: {
+    borderWidth: 1,
+    borderColor: `${Colors.error}20`,
+  },
+  dangerText: {
+    color: Colors.error,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: Spacing.extraLarge,
+    paddingVertical: Spacing.large,
+  },
+  footerText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
+  },
+  footerSubText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    marginTop: Spacing.small,
+    textAlign: 'center',
   },
 });
 
