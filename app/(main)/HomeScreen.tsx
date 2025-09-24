@@ -40,7 +40,7 @@ export default function HomeScreen() {
   };
 
   const handleSettings = () => {
-    router.push('/settings');
+    router.push('/(main)/SettingsScreen');
   };
 
   const handleResultPress = (result: TestResult) => {
