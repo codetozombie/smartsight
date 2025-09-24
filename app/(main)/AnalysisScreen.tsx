@@ -1,6 +1,7 @@
 import { Button } from '@/components/Button';
 import { Colors, Spacing, Typography } from '@/constants/theme';
-import { mockAnalyzeImage, ModelError } from '@/utils/model';
+import { analyzeImageWithFallback } from '@/services/analysisService'; // 1. UPDATE THIS
+import { ModelError } from '@/utils/errors'; // 1. UPDATE THIS
 import { AnalysisResult } from '@/utils/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -116,7 +117,7 @@ export default function AnalysisScreen() {
       setIsAnalyzing(true);
       setError(null);
       
-      const result = await mockAnalyzeImage(imageUri);
+      const result = await analyzeImageWithFallback(imageUri); // 2. UPDATE THIS
       setAnalysisResult(result);
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -141,10 +142,11 @@ export default function AnalysisScreen() {
       router.push({
         pathname: '/(main)/ResultScreen',
         params: {
-          result: analysisResult.result,
+          prediction: analysisResult.result, // 3. UPDATE THIS (was 'result')
           confidence: analysisResult.confidence.toString(),
           timestamp: analysisResult.timestamp,
           imageUri: analysisResult.imageUri,
+          details: JSON.stringify(analysisResult.details || {}), // 3. ADD THIS
         },
       });
     }
