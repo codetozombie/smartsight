@@ -1,7 +1,7 @@
 import { ModelError } from '../utils/errors';
 import { AnalysisResult, TestOutcome } from '../utils/types';
 
-// Mock analysis function for development
+// Mock analysis function for development/fallback
 const mockAnalyzeImage = async (imageUri: string): Promise<AnalysisResult> => {
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -19,16 +19,17 @@ const mockAnalyzeImage = async (imageUri: string): Promise<AnalysisResult> => {
     timestamp: now,
     imageUri: imageUri,
     details: {
-      processedAt: now, // Ensure this is always a string
-      modelVersion: '1.0.0', // Ensure this is always a string
-      processing_time: 0, // Will be updated by analyzeImage function
-      analysis_method: 'mock_analysis',
+      processedAt: now,
+      modelVersion: 'mock-1.0.0',
+      processing_time: 2.0,
+      model_type: 'mock_analysis',
       image_quality: Math.random() > 0.5 ? 'good' : 'fair',
       detected_features: ['iris', 'pupil', 'sclera'],
     },
   };
 };
 
+// Main analysis function (currently uses mock, will be updated for ONNX)
 export const analyzeImage = async (imageUri: string): Promise<AnalysisResult> => {
   const startTime = Date.now();
   
@@ -37,27 +38,20 @@ export const analyzeImage = async (imageUri: string): Promise<AnalysisResult> =>
       throw new ModelError('No image URI provided', 'INVALID_INPUT');
     }
 
+    // For now, use mock analysis
+    // TODO: Replace with ONNX model when ready
     const result = await mockAnalyzeImage(imageUri);
     
     const processingTime = Date.now() - startTime;
-    const currentTime = new Date().toISOString();
     
-    // Create a properly typed AnalysisResult with all required properties
-    const analysisResult: AnalysisResult = {
-      result: result.result,
-      confidence: result.confidence,
-      timestamp: result.timestamp,
-      imageUri: result.imageUri,
+    // Update processing time in details
+    return {
+      ...result,
       details: {
-        processedAt: result.details?.processedAt ?? currentTime,
-        modelVersion: result.details?.modelVersion ?? '1.0.0',
+        ...result.details,
         processing_time: processingTime / 1000,
-        // Add any additional properties safely
-        ...(result.details || {}),
       },
     };
-    
-    return analysisResult;
   } catch (error) {
     console.error('Analysis failed:', error);
     
@@ -68,15 +62,33 @@ export const analyzeImage = async (imageUri: string): Promise<AnalysisResult> =>
   }
 };
 
-// Additional utility functions
-export const validateImage = (imageUri: string): boolean => {
+// Analysis with fallback - this is what your AnalysisScreen needs
+export const analyzeImageWithFallback = async (imageUri: string): Promise<AnalysisResult> => {
+  try {
+    // Try main analysis first
+    return await analyzeImage(imageUri);
+  } catch (error) {
+    console.warn('Main analysis failed, using fallback:', error);
+    
+    // Fallback to mock analysis
+    try {
+      return await mockAnalyzeImage(imageUri);
+    } catch (fallbackError) {
+      console.error('Fallback analysis also failed:', fallbackError);
+      throw new ModelError('All analysis methods failed', 'ANALYSIS_FAILED');
+    }
+  }
+};
+
+// Utility functions
+export const validateImageForAnalysis = (imageUri: string): boolean => {
   if (!imageUri) return false;
   if (!imageUri.startsWith('file://') && !imageUri.startsWith('data:')) return false;
   return true;
 };
 
-export const getModelInfo = () => ({
-  version: '1.0.0',
+export const getAnalysisModelInfo = () => ({
+  version: 'mock-1.0.0',
   type: 'mock_classifier',
   supportedFormats: ['jpg', 'jpeg', 'png'],
   inputSize: { width: 224, height: 224 },
