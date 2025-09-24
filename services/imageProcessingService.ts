@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system';
-import { Image } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Image } from 'react-native';
 
 export interface ImageProcessingOptions {
   targetWidth: number;
@@ -20,14 +20,7 @@ export class ImageProcessingService {
     }
   ): Promise<string> {
     try {
-      // For React Native, you might want to use libraries like:
-      // - react-native-image-resizer
-      // - expo-image-manipulator
-      // - react-native-image-processing
-      
-      // Using expo-image-manipulator (install if not available)
-      
-      
+      // Updated for expo-image-manipulator v14.0.7
       const manipResult = await ImageManipulator.manipulateAsync(
         imageUri,
         [
@@ -35,17 +28,14 @@ export class ImageProcessingService {
         ],
         { 
           compress: options.quality, 
-          format: ImageManipulator.SaveFormat.JPEG 
+          format: options.format === 'jpeg' ? ImageManipulator.SaveFormat.JPEG : ImageManipulator.SaveFormat.PNG
         }
       );
       
       return manipResult.uri;
-      
-      // For now, return original URI
-      return imageUri;
     } catch (error) {
       console.error('Image processing failed:', error);
-      throw new Error('Failed to process image');
+      return imageUri; // Return original if processing fails
     }
   }
 
@@ -61,19 +51,13 @@ export class ImageProcessingService {
           try {
             const fileInfo = await FileSystem.getInfoAsync(imageUri);
             
-            // Fix: Check if file exists and has size property
-            let fileSize = 0;
-            if (fileInfo.exists && 'size' in fileInfo) {
-              fileSize = fileInfo.size;
-            }
+            const fileSize = (fileInfo.exists && !fileInfo.isDirectory && 'size' in fileInfo) 
+              ? (fileInfo as any).size || 0 
+              : 0;
             
-            resolve({
-              width,
-              height,
-              size: fileSize,
-            });
+            resolve({ width, height, size: fileSize });
           } catch (error) {
-            reject(error);
+            resolve({ width, height, size: 0 });
           }
         },
         reject
@@ -83,9 +67,20 @@ export class ImageProcessingService {
 
   static validateImage(imageUri: string): boolean {
     if (!imageUri) return false;
-    if (!imageUri.startsWith('file://') && !imageUri.startsWith('data:')) return false;
     
-    const extension = imageUri.toLowerCase().split('.').pop();
-    return ['jpg', 'jpeg', 'png'].includes(extension || '');
+    const isValidUri = imageUri.startsWith('file://') || 
+                      imageUri.startsWith('data:') ||
+                      imageUri.startsWith('content://') ||
+                      imageUri.startsWith('assets-library://') ||
+                      imageUri.startsWith('ph://');
+    
+    if (!isValidUri) return false;
+    
+    if (imageUri.includes('.')) {
+      const extension = imageUri.toLowerCase().split('.').pop();
+      return ['jpg', 'jpeg', 'png', 'heic', 'webp'].includes(extension || '');
+    }
+    
+    return true;
   }
 }
