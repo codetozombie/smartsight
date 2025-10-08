@@ -4,6 +4,9 @@ import { analyzeImageWithFallback } from '@/services/analysisService'; // 1. UPD
 import { ModelError } from '@/utils/errors'; // 1. UPDATE THIS
 import { AnalysisResult } from '@/utils/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { SavedResult } from '../../utils/types'; // ADD THIS
+//import { saveResult } from '../../utils/storage'; // ADD THIS
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,7 +18,7 @@ import {
   Text,
   View
 } from 'react-native';
-
+import { saveResult } from '../../utils/storage'; 
 export default function AnalysisScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -137,18 +140,49 @@ export default function AnalysisScreen() {
     startAnimations();
   };
 
-  const handleViewResults = () => {
+  const handleViewResults = async () => { // MAKE THIS ASYNC
     if (analysisResult) {
-      router.push({
-        pathname: '/(main)/ResultScreen',
-        params: {
-          prediction: analysisResult.result, // 3. UPDATE THIS (was 'result')
-          confidence: analysisResult.confidence.toString(),
+      try {
+        // SAVE THE RESULT TO STORAGE
+        const savedResult: SavedResult = {
+          id: Date.now().toString(),
           timestamp: analysisResult.timestamp,
           imageUri: analysisResult.imageUri,
-          details: JSON.stringify(analysisResult.details || {}), // 3. ADD THIS
-        },
-      });
+          outcome: analysisResult.result,
+          confidence: analysisResult.confidence,
+          analysis: analysisResult,
+          date: analysisResult.timestamp,
+          result: analysisResult.result,
+          notes: '',
+        };
+        
+        await saveResult(savedResult);
+        
+        // THEN NAVIGATE
+        router.push({
+          pathname: '/(main)/ResultScreen',
+          params: {
+            prediction: analysisResult.result,
+            confidence: analysisResult.confidence.toString(),
+            timestamp: analysisResult.timestamp,
+            imageUri: analysisResult.imageUri,
+            details: JSON.stringify(analysisResult.details || {}),
+          },
+        });
+      } catch (error) {
+        console.error('Failed to save result:', error);
+        // Still navigate even if save fails
+        router.push({
+          pathname: '/(main)/ResultScreen',
+          params: {
+            prediction: analysisResult.result,
+            confidence: analysisResult.confidence.toString(),
+            timestamp: analysisResult.timestamp,
+            imageUri: analysisResult.imageUri,
+            details: JSON.stringify(analysisResult.details || {}),
+          },
+        });
+      }
     }
   };
 
