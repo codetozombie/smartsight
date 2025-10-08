@@ -1,88 +1,58 @@
+import { Colors, Spacing, Typography } from '@/constants/theme';
+import { clearAnalysisHistory, deleteAnalysisResult, getAnalysisHistory } from '@/utils/storage';
+import type { AnalysisResult } from '@/utils/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import EmptyState from '../../components/EmptyState';
-import HistoryItem from '../../components/HistoryItem';
-import { deleteResult, getResults } from '../../utils/storage';
-import { SavedResult } from '../../utils/types';
+import { useCallback, useState } from 'react';
+import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const HistoryScreen: React.FC = () => {
+export default function HistoryScreen() {
   const router = useRouter();
-  
-  const [results, setResults] = useState<SavedResult[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadResults = async () => {
+  // ✅ Load history when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [])
+  );
+
+  const loadHistory = async () => {
     try {
-      setError(null);
-      const savedResults = await getResults();
-      
-      // Sort by timestamp (most recent first)
-      const sortedResults = savedResults.sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      
-      setResults(sortedResults);
-    } catch (err) {
-      console.error('Failed to load results:', err);
-      setError('Failed to load history. Please try again.');
+      setLoading(true);
+      const historyData = await getAnalysisHistory();
+      setHistory(historyData);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+      Alert.alert('Error', 'Failed to load analysis history');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadResults();
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadHistory();
   };
 
-  const handleResultPress = (result: SavedResult) => {
-    router.push({
-      pathname: '/(main)/DetailedResultScreen',
-      params: {
-        resultId: result.id,
-        result: result.result,
-        confidence: result.confidence.toString(),
-        timestamp: result.timestamp,
-        imageUri: result.imageUri,
-        notes: result.notes || '',
-      },
-    });
-  };
-
-  const handleDeleteResult = async (resultId: string) => {
+  const handleDelete = (timestamp: string) => {
     Alert.alert(
-      'Delete Analysis',
-      'Are you sure you want to delete this analysis? This action cannot be undone.',
+      'Delete Result',
+      'Are you sure you want to delete this analysis result?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteResult(resultId);
-              await loadResults(); // Refresh the list
-            } catch (err) {
-              console.error('Failed to delete result:', err);
-              Alert.alert('Error', 'Failed to delete analysis. Please try again.');
+              await deleteAnalysisResult(timestamp);
+              loadHistory();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete result');
             }
           },
         },
@@ -90,214 +60,285 @@ const HistoryScreen: React.FC = () => {
     );
   };
 
-  const handleStartNewAnalysis = () => {
-    router.push('/(main)/CameraScreen');
+  const handleClearAll = () => {
+    Alert.alert(
+      'Clear All History',
+      'This will permanently delete all your analysis history. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAnalysisHistory();
+              setHistory([]);
+              Alert.alert('Success', 'All history has been cleared');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear history');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const getResultsStats = () => {
-    const total = results.length;
-    const healthy = results.filter(r => (r.result || r.outcome) === 'healthy').length;
-    const monitor = results.filter(r => (r.result || r.outcome) === 'monitor').length;
-    const critical = results.filter(r => (r.result || r.outcome) === 'critical').length;
-
-    return { total, healthy, monitor, critical };
+  const handleViewDetails = (item: AnalysisResult) => {
+    router.push({
+      pathname: '/(main)/DetailedResultScreen',
+      params: {
+        result: JSON.stringify(item),
+      },
+    });
   };
 
-  // Refresh data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      loadResults();
-    }, [])
-  );
+  const getResultColor = (result: string) => {
+    switch (result) {
+      case 'healthy':
+        return Colors.success;
+      case 'monitor':
+        return Colors.warning;
+      case 'critical':
+        return Colors.error;
+      default:
+        return Colors.textSecondary;
+    }
+  };
 
-  const stats = getResultsStats();
+  const getResultIcon = (result: string) => {
+    switch (result) {
+      case 'healthy':
+        return 'checkmark-circle';
+      case 'monitor':
+        return 'alert-circle';
+      case 'critical':
+        return 'warning';
+      default:
+        return 'help-circle';
+    }
+  };
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>Analysis History</Text>
-        <Text style={styles.subtitle}>
-          {results.length} {results.length === 1 ? 'analysis' : 'analyses'} performed
-        </Text>
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const renderHistoryItem = ({ item }: { item: AnalysisResult }) => (
+    <TouchableOpacity
+      style={styles.historyItem}
+      onPress={() => handleViewDetails(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.itemLeft}>
+        <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
+        <View style={styles.itemInfo}>
+          <View style={styles.resultRow}>
+            <Ionicons
+              name={getResultIcon(item.result)}
+              size={20}
+              color={getResultColor(item.result)}
+            />
+            <Text style={[styles.resultText, { color: getResultColor(item.result) }]}>
+              {item.result.charAt(0).toUpperCase() + item.result.slice(1)}
+            </Text>
+          </View>
+          <Text style={styles.confidenceText}>
+            Confidence: {(item.confidence * 100).toFixed(1)}%
+          </Text>
+          <Text style={styles.dateText}>{formatDate(item.timestamp)}</Text>
+        </View>
       </View>
-
-      {results.length > 0 && (
-        <View style={styles.statsContainer}>
-          <View style={[styles.statItem, { backgroundColor: '#d1fae5' }]}>
-            <Text style={[styles.statNumber, { color: '#065f46' }]}>{stats.healthy}</Text>
-            <Text style={[styles.statLabel, { color: '#065f46' }]}>Healthy</Text>
-          </View>
-          
-          <View style={[styles.statItem, { backgroundColor: '#fef3c7' }]}>
-            <Text style={[styles.statNumber, { color: '#92400e' }]}>{stats.monitor}</Text>
-            <Text style={[styles.statLabel, { color: '#92400e' }]}>Monitor</Text>
-          </View>
-          
-          <View style={[styles.statItem, { backgroundColor: '#fee2e2' }]}>
-            <Text style={[styles.statNumber, { color: '#991b1b' }]}>{stats.critical}</Text>
-            <Text style={[styles.statLabel, { color: '#991b1b' }]}>Critical</Text>
-          </View>
-        </View>
-      )}
-    </View>
+      <View style={styles.itemActions}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDelete(item.timestamp)}
+        >
+          <Ionicons name="trash-outline" size={20} color={Colors.error} />
+        </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+      </View>
+    </TouchableOpacity>
   );
 
-  const renderItem = ({ item }: { item: SavedResult }) => (
-    <HistoryItem item={item} onPress={handleResultPress} />
-  );
-
-  const renderEmptyState = () => (
-    <EmptyState
-      title="No Analysis History"
-      message="You haven't performed any eye analyses yet. Start your first analysis to see your results here."
-      actionText="Start Analysis"
-      onAction={handleStartNewAnalysis}
-      icon="eye-outline"
-    />
-  );
-
-  if (error) {
+  if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#ef4444" />
-          <Text style={styles.errorTitle}>Failed to Load History</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={loadResults}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.centerContainer}>
+        <Text style={styles.emptyText}>Loading history...</Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#06b6d4" />
-          <Text style={styles.loadingText}>Loading history...</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Analysis History</Text>
+        {history.length > 0 && (
+          <TouchableOpacity onPress={handleClearAll} style={styles.clearButton}>
+            <Text style={styles.clearButtonText}>Clear All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {history.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="document-text-outline" size={64} color={Colors.textSecondary} />
+          <Text style={styles.emptyTitle}>No Analysis History</Text>
+          <Text style={styles.emptyText}>
+            Your analysis results will appear here after you scan an eye image.
+          </Text>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={() => router.push('/(main)/CameraScreen')}
+          >
+            <Ionicons name="camera" size={20} color={Colors.white} />
+            <Text style={styles.scanButtonText}>Start First Scan</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmptyState}
+          data={history}
+          renderItem={renderHistoryItem}
+          keyExtractor={(item) => item.timestamp}
+          contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={['#06b6d4']}
-              tintColor="#06b6d4"
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.primary]}
             />
           }
-          contentContainerStyle={
-            results.length === 0 ? styles.emptyContainer : styles.listContainer
-          }
-          showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
+    paddingTop: 24,
   },
-  loadingContainer: {
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6b7280',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Spacing.large,
+    paddingBottom: Spacing.medium,
   },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+  title: {
+    fontSize: Typography.sizes.xxxlarge,
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
   },
-  errorMessage: {
-    fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+  clearButton: {
+    paddingHorizontal: Spacing.medium,
+    paddingVertical: Spacing.small,
   },
-  retryButton: {
-    backgroundColor: '#06b6d4',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+  clearButtonText: {
+    color: Colors.error,
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.semibold,
+  },
+  listContent: {
+    paddingHorizontal: Spacing.large,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+    padding: Spacing.medium,
+    marginBottom: Spacing.medium,
+    borderRadius: 12,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  itemLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  thumbnail: {
+    width: 60,
+    height: 60,
     borderRadius: 8,
+    marginRight: Spacing.medium,
+    backgroundColor: Colors.backgroundSecondary,
   },
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  itemInfo: {
+    flex: 1,
   },
-  listContainer: {
-    paddingBottom: 20,
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  resultText: {
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.semibold,
+    marginLeft: 6,
+  },
+  confidenceText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  dateText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.small,
+  },
+  deleteButton: {
+    padding: Spacing.small,
   },
   emptyContainer: {
     flex: 1,
-  },
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-  },
-  titleContainer: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statItem: {
-    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.extraLarge,
+  },
+  emptyTitle: {
+    fontSize: Typography.sizes.xlarge,
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
+    marginTop: Spacing.large,
+    marginBottom: Spacing.small,
+  },
+  emptyText: {
+    fontSize: Typography.sizes.medium,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.extraLarge,
+  },
+  scanButton: {
+    flexDirection: 'row',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.large,
+    paddingVertical: Spacing.medium,
     borderRadius: 12,
+    alignItems: 'center',
+    gap: Spacing.small,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  scanButtonText: {
+    color: Colors.white,
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.semibold,
   },
 });
-
-export default HistoryScreen;

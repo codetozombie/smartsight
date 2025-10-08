@@ -42,6 +42,9 @@ export const mockAnalyzeImage = async (imageUri: string): Promise<AnalysisResult
       processedAt: new Date().toISOString(),
       modelVersion: '1.0.0',
       processing_time: 3.2,
+      model_type: 'mock_classifier', // ✅ Added required field
+      image_quality: 'good',
+      detected_features: ['iris', 'pupil', 'sclera'],
     },
   };
 };
@@ -102,12 +105,21 @@ export const analyzeImage = async (imageUri: string): Promise<AnalysisResult> =>
     // Use mock analysis for now
     const result = await mockAnalyzeImage(imageUri);
     
-    const processingTime = Date.now() - startTime;
+    const processingTime = (Date.now() - startTime) / 1000;
+    
+    // ✅ Fixed: Explicitly construct details with all required fields
     return {
-      ...result,
+      result: result.result,
+      confidence: result.confidence,
+      timestamp: result.timestamp,
+      imageUri: result.imageUri,
       details: {
-        ...result.details,
-        processing_time: processingTime / 1000,
+        processedAt: result.details.processedAt,
+        modelVersion: result.details.modelVersion,
+        processing_time: processingTime,
+        model_type: result.details.model_type,
+        image_quality: result.details.image_quality,
+        detected_features: result.details.detected_features,
       },
     };
   } catch (error) {

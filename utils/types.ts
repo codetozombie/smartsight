@@ -3,9 +3,63 @@
  * All app-wide types and interfaces
  */
 
+/**
+ * Test outcome types
+ */
 export type TestOutcome = 'healthy' | 'monitor' | 'critical';
+
+/**
+ * Eye result types (alias for TestOutcome)
+ */
 export type EyeResult = TestOutcome;
 
+/**
+ * Analysis result from the model
+ */
+export interface AnalysisResult {
+  id: string; // ✅ Added ID
+  timestamp: string; // This will map to 'date' in SavedRecord
+  imageUri: string;
+  result: TestOutcome;
+  confidence: number;
+  details: {
+    detected_features?: string[];
+    probabilities?: number[];
+    [key: string]: any;
+  };
+  notes?: string; // ✅ Added optional notes
+}
+
+/**
+ * Saved record structure
+ */
+export interface SavedRecord {
+  id: string;
+  date: string; // ISO date string
+  result: EyeResult;
+  imageUri: string;
+  confidence?: number;
+  notes?: string;
+  details?: {
+    detected_features?: string[];
+    probabilities?: number[];
+    [key: string]: any;
+  };
+}
+
+/**
+ * Recommendation configuration
+ */
+export interface RecommendationConfig {
+  description: string;
+  recommendations: string[];
+  urgencyLevel: 'low' | 'medium' | 'high';
+  followUpDays?: number;
+}
+
+/**
+ * Test result structure
+ */
 export interface TestResult {
   id: string;
   timestamp: string;
@@ -13,19 +67,6 @@ export interface TestResult {
   outcome: TestOutcome;
   confidence: number;
   analysis?: AnalysisResult;
-}
-
-export interface AnalysisResult {
-  result: TestOutcome;
-  confidence: number;
-  timestamp: string;
-  imageUri: string;
-  details?: {
-    processedAt?: string;
-    modelVersion?: string;
-    processing_time: number;
-    [key: string]: any;
-  };
 }
 
 // Fix SavedResult to include all needed properties
@@ -36,28 +77,11 @@ export interface SavedResult extends TestResult {
   notes?: string;   // Add notes property
 }
 
-export interface SavedRecord {
-  id: string;
-  date: string;
-  result: EyeResult;
-  imageUri: string;
-  confidence?: number;
-  notes?: string;
-}
-
 export interface UserSettings {
   hasCompletedOnboarding: boolean;
   language: string;
   notifications: boolean;
   dataConsent: boolean;
-}
-
-// Recommendation types
-export interface RecommendationConfig {
-  description: string;
-  recommendations: string[];
-  urgencyLevel: 'low' | 'medium' | 'high';
-  followUpDays: number;
 }
 
 // Navigation parameter types
@@ -84,6 +108,37 @@ export type DetailedResultScreenParams = {
   imageUri?: string;
   confidence?: string;
   notes?: string;
+};
+
+// Add navigation types for settings
+export type SettingsStackParamList = {
+  index: undefined;
+  AboutScreen: undefined;
+  PrivacyPolicyScreen: undefined;
+  ContactScreen: undefined;
+};
+
+// Add main navigation types
+export type MainStackParamList = {
+  HomeScreen: undefined;
+  CameraScreen: undefined;
+  AnalysisScreen: { imageUri: string };
+  ResultScreen: {
+    imageUri: string;
+    prediction: string;
+    confidence: string;
+    details?: string;
+  };
+  DetailedResultScreen: { result: AnalysisResult };
+  HistoryScreen: undefined;
+  settings: undefined;
+};
+
+// Root navigation types
+export type RootStackParamList = {
+  '(auth)': undefined;
+  '(main)': undefined;
+  settings: undefined;
 };
 
 // Storage Types

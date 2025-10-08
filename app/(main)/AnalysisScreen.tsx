@@ -1,267 +1,133 @@
-import { Button } from '@/components/Button';
 import { Colors, Spacing, Typography } from '@/constants/theme';
-import { analyzeImageWithFallback } from '@/services/analysisService'; // 1. UPDATE THIS
-import { ModelError } from '@/utils/errors'; // 1. UPDATE THIS
-import { AnalysisResult } from '@/utils/types';
+import { analyzeImageWithFallback } from '../../services/analysisService';
+import { saveAnalysisResult } from '@/utils/storage';
+import type { AnalysisResult } from '@/utils/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Image,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
+// ✅ Add default export
 export default function AnalysisScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const imageUri = typeof params.imageUri === 'string' ? params.imageUri : '';
-  
-  const [isAnalyzing, setIsAnalyzing] = useState(true);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const params = useLocalSearchParams<{ imageUri: string }>();
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('Preparing image...');
   const [error, setError] = useState<string | null>(null);
 
-  const dotOpacity1 = useRef(new Animated.Value(0.3)).current;
-  const dotOpacity2 = useRef(new Animated.Value(0.3)).current;
-  const dotOpacity3 = useRef(new Animated.Value(0.3)).current;
-  const pulseAnimation = useRef(new Animated.Value(1)).current;
-
   useEffect(() => {
-    if (imageUri) {
-      startAnalysis();
-      startAnimations();
-    } else {
-      setError('No image provided for analysis');
-      setIsAnalyzing(false);
+    if (!params.imageUri) {
+      Alert.alert('Error', 'No image provided');
+      router.back();
+      return;
     }
 
-    return () => {
-      dotOpacity1.stopAnimation();
-      dotOpacity2.stopAnimation();
-      dotOpacity3.stopAnimation();
-      pulseAnimation.stopAnimation();
-    };
-  }, [imageUri]);
+    performAnalysis();
+  }, [params.imageUri]);
 
-  const startAnimations = () => {
-    const animateDots = () => {
-      const duration = 500;
-
-      Animated.sequence([
-        Animated.timing(dotOpacity1, {
-          toValue: 1,
-          duration,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotOpacity2, {
-          toValue: 1,
-          duration,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotOpacity3, {
-          toValue: 1,
-          duration,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotOpacity1, {
-          toValue: 0.3,
-          duration,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotOpacity2, {
-          toValue: 0.3,
-          duration,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotOpacity3, {
-          toValue: 0.3,
-          duration,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        if (isAnalyzing) {
-          animateDots();
-        }
-      });
-    };
-
-    const animatePulse = () => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnimation, {
-            toValue: 1.05,
-            duration: 1000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnimation, {
-            toValue: 1,
-            duration: 1000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    };
-
-    animateDots();
-    animatePulse();
-  };
-
-  const startAnalysis = async () => {
+  const performAnalysis = async () => {
     try {
-      setIsAnalyzing(true);
       setError(null);
-      
-      const result = await analyzeImageWithFallback(imageUri); // 2. UPDATE THIS
-      setAnalysisResult(result);
+
+      // Step 1: Initialize (10%)
+      setProgress(10);
+      setStatusMessage('Loading AI model...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 2: Preprocessing (30%)
+      setProgress(30);
+      setStatusMessage('Processing image...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 3: Running inference (60%)
+      setProgress(60);
+      setStatusMessage('Analyzing eye health...');
+
+      const result: AnalysisResult = await analyzeImageWithFallback(params.imageUri);
+
+      // Step 4: Processing results (90%)
+      setProgress(90);
+      setStatusMessage('Finalizing results...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Save to history
+      console.log('Saving analysis result to history...');
+      await saveAnalysisResult(result);
+      console.log('Result saved successfully');
+
+      // Step 5: Complete (100%)
+      setProgress(100);
+      setStatusMessage('Analysis complete!');
+
+      // Navigate to results
+      setTimeout(() => {
+        router.replace({
+          pathname: '/(main)/ResultScreen',
+          params: {
+            imageUri: result.imageUri,
+            prediction: result.result,
+            confidence: result.confidence.toString(),
+            className: result.details.detected_features?.[0] || result.result,
+            timestamp: result.timestamp,
+          },
+        });
+      }, 500);
+
     } catch (error) {
       console.error('Analysis failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
+      setError(errorMessage);
       
-      if (error instanceof ModelError) {
-        setError(error.message);
-      } else {
-        setError('Analysis failed. Please try again.');
-      }
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleRetry = () => {
-    startAnalysis();
-    startAnimations();
-  };
-
-  const handleViewResults = () => {
-    if (analysisResult) {
-      router.push({
-        pathname: '/(main)/ResultScreen',
-        params: {
-          prediction: analysisResult.result, // 3. UPDATE THIS (was 'result')
-          confidence: analysisResult.confidence.toString(),
-          timestamp: analysisResult.timestamp,
-          imageUri: analysisResult.imageUri,
-          details: JSON.stringify(analysisResult.details || {}), // 3. ADD THIS
-        },
-      });
-    }
-  };
-
-  const handleGoHome = () => {
-    router.push('/(main)/HomeScreen');
-  };
-
-  const getResultColor = (result: string) => {
-    switch (result) {
-      case 'healthy':
-        return Colors.success;
-      case 'monitor':
-        return Colors.warning;
-      case 'critical':
-        return Colors.error;
-      default:
-        return Colors.textSecondary;
-    }
-  };
-
-  const getResultMessage = (result: string) => {
-    switch (result) {
-      case 'healthy':
-        return 'Your eye appears healthy!';
-      case 'monitor':
-        return 'Monitor recommended';
-      case 'critical':
-        return 'Immediate attention needed';
-      default:
-        return 'Analysis complete';
+      Alert.alert(
+        'Analysis Failed',
+        errorMessage + '\n\nWould you like to try again?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => router.back(),
+          },
+          {
+            text: 'Retry',
+            onPress: () => performAnalysis(),
+          },
+        ]
+      );
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.imageContainer}>
-          <Animated.View style={[
-            styles.imageWrapper,
-            { transform: [{ scale: pulseAnimation }] }
-          ]}>
-            <Image
-              source={{ uri: imageUri }}
-              style={styles.image}
-              resizeMode="cover"
-            />
-            {isAnalyzing && <View style={styles.imageOverlay} />}
-          </Animated.View>
+        <View style={styles.animationContainer}>
+          <View style={styles.pulsingCircle}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
         </View>
 
-        <View style={styles.statusContainer}>
-          {isAnalyzing ? (
-            <>
-              <Text style={styles.analyzingText}>
-                Analyzing your eye
-                <Animated.Text style={[styles.dot, { opacity: dotOpacity1 }]}>.</Animated.Text>
-                <Animated.Text style={[styles.dot, { opacity: dotOpacity2 }]}>.</Animated.Text>
-                <Animated.Text style={[styles.dot, { opacity: dotOpacity3 }]}>.</Animated.Text>
-              </Text>
-              <ActivityIndicator
-                size="large"
-                color={Colors.primary}
-                style={styles.spinner}
-              />
-              <Text style={styles.subText}>
-                Using advanced AI to analyze your image
-              </Text>
-            </>
-          ) : error ? (
-            <>
-              <Text style={styles.errorText}>Analysis Failed</Text>
-              <Text style={styles.errorSubText}>{error}</Text>
-              <Button
-                title="Try Again"
-                onPress={handleRetry}
-                variant="primary"
-                style={styles.actionButton}
-              />
-              <Button
-                title="Go Home"
-                onPress={handleGoHome}
-                variant="secondary"
-                style={styles.actionButton}
-              />
-            </>
-          ) : analysisResult ? (
-            <>
-              <Text style={[
-                styles.resultText,
-                { color: getResultColor(analysisResult.result) }
-              ]}>
-                {getResultMessage(analysisResult.result)}
-              </Text>
-              <Text style={styles.confidenceText}>
-                Confidence: {Math.round(analysisResult.confidence * 100)}%
-              </Text>
-              <Button
-                title="View Detailed Results"
-                onPress={handleViewResults}
-                variant="primary"
-                style={styles.actionButton}
-              />
-              <Button
-                title="Analyze Another"
-                onPress={() => router.push('/(main)/CameraScreen')}
-                variant="secondary"
-                style={styles.actionButton}
-              />
-            </>
-          ) : null}
+        <Text style={styles.title}>Analyzing Image</Text>
+        <Text style={styles.statusText}>{statusMessage}</Text>
+
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBackground}>
+            <View style={[styles.progressBar, { width: `${progress}%` }]} />
+          </View>
+          <Text style={styles.progressText}>{progress}%</Text>
+        </View>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>⚠️ {error}</Text>
+          </View>
+        )}
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>
+            Our AI is analyzing your eye image using advanced deep learning models.
+            This may take a few moments.
+          </Text>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -272,94 +138,77 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: Spacing.large,
-    paddingVertical: Spacing.large,
-  },
-  imageContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.large,
+  },
+  animationContainer: {
     marginBottom: Spacing.extraLarge,
   },
-  imageWrapper: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(6, 182, 212, 0.2)',
-  },
-  statusContainer: {
+  pulsingCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: Spacing.extraLarge,
   },
-  analyzingText: {
-    fontSize: Typography.sizes.xlarge,
-    fontWeight: Typography.weights.semibold,
-    color: Colors.text,
-    marginBottom: Spacing.large,
-    textAlign: 'center',
-  },
-  dot: {
-    fontSize: Typography.sizes.xlarge,
-    fontWeight: Typography.weights.semibold,
-    color: Colors.primary,
-  },
-  spinner: {
-    marginVertical: Spacing.large,
-  },
-  subText: {
-    fontSize: Typography.sizes.medium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  resultText: {
-    fontSize: Typography.sizes.xxlarge,
+  title: {
+    fontSize: Typography.sizes.xxxlarge,
     fontWeight: Typography.weights.bold,
-    textAlign: 'center',
+    color: Colors.text,
     marginBottom: Spacing.medium,
+    textAlign: 'center',
   },
-  confidenceText: {
+  statusText: {
     fontSize: Typography.sizes.large,
     color: Colors.textSecondary,
     marginBottom: Spacing.extraLarge,
     textAlign: 'center',
   },
-  errorText: {
-    fontSize: Typography.sizes.xlarge,
-    fontWeight: Typography.weights.semibold,
-    color: Colors.error,
-    textAlign: 'center',
-    marginBottom: Spacing.medium,
+  progressContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: Spacing.large,
   },
-  errorSubText: {
+  progressBackground: {
+    width: '100%',
+    height: 8,
+    backgroundColor: Colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: Spacing.small,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 4,
+  },
+  progressText: {
     fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.primary,
+  },
+  errorContainer: {
+    backgroundColor: '#FFEBEE',
+    padding: Spacing.medium,
+    borderRadius: 8,
+    marginTop: Spacing.medium,
+    width: '100%',
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: Typography.sizes.medium,
+    textAlign: 'center',
+  },
+  infoContainer: {
+    marginTop: Spacing.extraLarge,
+    paddingHorizontal: Spacing.medium,
+  },
+  infoText: {
+    fontSize: Typography.sizes.small,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: Spacing.extraLarge,
-    lineHeight: 24,
-  },
-  actionButton: {
-    marginVertical: Spacing.small,
-    minWidth: 200,
+    lineHeight: 20,
   },
 });

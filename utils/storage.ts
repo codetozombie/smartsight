@@ -1,122 +1,159 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SavedRecord, SavedResult } from './types';
+import type { AnalysisResult } from './types';
 
-const RESULTS_KEY = 'smartsight_results';
-const RECORDS_KEY = 'smartsight_records';
+const STORAGE_KEYS = {
+  ANALYSIS_HISTORY: '@smartsight_analysis_history',
+  ONBOARDING_COMPLETE: '@smartsight_onboarding_complete',
+} as const;
 
-// Helper function to convert storage data to match SavedResult type
-const convertToSavedResult = (data: any): SavedResult => {
-  return {
-    id: data.id,
-    timestamp: data.timestamp || data.date,
-    imageUri: data.imageUri,
-    outcome: data.outcome || data.result,
-    confidence: data.confidence || 0,
-    analysis: data.analysis,
-    date: data.date || data.timestamp,
-    result: data.result || data.outcome, // Ensure result property exists
-    notes: data.notes,
-  };
-};
-
-export const saveResult = async (result: SavedResult): Promise<void> => {
+/**
+ * Save analysis result to history
+ */
+export const saveAnalysisResult = async (result: AnalysisResult): Promise<void> => {
   try {
-    const existingResults = await getResults();
-    const updatedResults = [result, ...existingResults];
-    await AsyncStorage.setItem(RESULTS_KEY, JSON.stringify(updatedResults));
+    // Get existing history
+    const history = await getAnalysisHistory();
+    
+    // Add new result at the beginning
+    const updatedHistory = [result, ...history];
+    
+    // Limit to last 50 results
+    const limitedHistory = updatedHistory.slice(0, 50);
+    
+    // Save to AsyncStorage
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.ANALYSIS_HISTORY,
+      JSON.stringify(limitedHistory)
+    );
+    
+    console.log('Analysis result saved to history');
   } catch (error) {
-    console.error('Failed to save result:', error);
-    throw new Error('Failed to save analysis result');
+    console.error('Failed to save analysis result:', error);
+    throw new Error('Failed to save to history');
   }
 };
 
-export const getResults = async (): Promise<SavedResult[]> => {
+/**
+ * Get all analysis history
+ */
+export const getAnalysisHistory = async (): Promise<AnalysisResult[]> => {
   try {
-    const resultsJson = await AsyncStorage.getItem(RESULTS_KEY);
-    if (!resultsJson) return [];
+    const historyJson = await AsyncStorage.getItem(STORAGE_KEYS.ANALYSIS_HISTORY);
     
-    const results = JSON.parse(resultsJson);
-    // Convert all results to match SavedResult type
-    return results.map(convertToSavedResult);
+    if (!historyJson) {
+      return [];
+    }
+    
+    const history = JSON.parse(historyJson) as AnalysisResult[];
+    return history;
   } catch (error) {
-    console.error('Failed to load results:', error);
+    console.error('Failed to load analysis history:', error);
     return [];
   }
 };
 
-export const deleteResult = async (resultId: string): Promise<void> => {
+/**
+ * Get a specific record by timestamp (ID)
+ */
+export const getRecordById = async (timestamp: string): Promise<AnalysisResult | null> => {
   try {
-    const existingResults = await getResults();
-    const updatedResults = existingResults.filter(result => result.id !== resultId);
-    await AsyncStorage.setItem(RESULTS_KEY, JSON.stringify(updatedResults));
-  } catch (error) {
-    console.error('Failed to delete result:', error);
-    throw new Error('Failed to delete analysis result');
-  }
-};
-
-export const getResultById = async (resultId: string): Promise<SavedResult | null> => {
-  try {
-    const results = await getResults();
-    const result = results.find(r => r.id === resultId);
-    return result || null;
-  } catch (error) {
-    console.error('Failed to get result by ID:', error);
-    return null;
-  }
-};
-
-// Records functions (for backward compatibility)
-export const saveRecord = async (record: SavedRecord): Promise<void> => {
-  try {
-    const existingRecords = await getRecords();
-    const updatedRecords = [record, ...existingRecords];
-    await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(updatedRecords));
-  } catch (error) {
-    console.error('Failed to save record:', error);
-    throw new Error('Failed to save analysis record');
-  }
-};
-
-export const getRecords = async (): Promise<SavedRecord[]> => {
-  try {
-    const recordsJson = await AsyncStorage.getItem(RECORDS_KEY);
-    if (!recordsJson) return [];
-    
-    return JSON.parse(recordsJson);
-  } catch (error) {
-    console.error('Failed to load records:', error);
-    return [];
-  }
-};
-
-export const deleteRecord = async (recordId: string): Promise<void> => {
-  try {
-    const existingRecords = await getRecords();
-    const updatedRecords = existingRecords.filter(record => record.id !== recordId);
-    await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(updatedRecords));
-  } catch (error) {
-    console.error('Failed to delete record:', error);
-    throw new Error('Failed to delete analysis record');
-  }
-};
-
-export const getRecordById = async (recordId: string): Promise<SavedRecord | null> => {
-  try {
-    const records = await getRecords();
-    const record = records.find(r => r.id === recordId);
+    const history = await getAnalysisHistory();
+    const record = history.find(item => item.timestamp === timestamp);
     return record || null;
   } catch (error) {
-    console.error('Failed to get record by ID:', error);
+    console.error('Failed to get record:', error);
     return null;
   }
 };
 
-export const clearAllData = async (): Promise<void> => {
+/**
+ * Delete a specific analysis result
+ */
+export const deleteAnalysisResult = async (timestamp: string): Promise<void> => {
   try {
-    await AsyncStorage.multiRemove([RESULTS_KEY, RECORDS_KEY]);
+    const history = await getAnalysisHistory();
+    const updatedHistory = history.filter(item => item.timestamp !== timestamp);
+    
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.ANALYSIS_HISTORY,
+      JSON.stringify(updatedHistory)
+    );
+    
+    console.log('Analysis result deleted');
   } catch (error) {
-    console.error('Failed to clear data:', error);
-    throw new Error('Failed to clear application data');
+    console.error('Failed to delete analysis result:', error);
+    throw new Error('Failed to delete from history');
+  }
+};
+
+/**
+ * Delete a record (alias for deleteAnalysisResult)
+ */
+export const deleteRecord = async (timestamp: string): Promise<void> => {
+  return deleteAnalysisResult(timestamp);
+};
+
+/**
+ * Clear all analysis history
+ */
+export const clearAnalysisHistory = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.ANALYSIS_HISTORY);
+    console.log('Analysis history cleared');
+  } catch (error) {
+    console.error('Failed to clear analysis history:', error);
+    throw new Error('Failed to clear history');
+  }
+};
+
+/**
+ * Get analysis statistics
+ */
+export const getAnalysisStatistics = async () => {
+  try {
+    const history = await getAnalysisHistory();
+    
+    const total = history.length;
+    const healthy = history.filter(r => r.result === 'healthy').length;
+    const monitor = history.filter(r => r.result === 'monitor').length;
+    const critical = history.filter(r => r.result === 'critical').length;
+    
+    return {
+      total,
+      healthy,
+      monitor,
+      critical,
+      lastAnalysis: history[0]?.timestamp || null,
+    };
+  } catch (error) {
+    console.error('Failed to get statistics:', error);
+    return {
+      total: 0,
+      healthy: 0,
+      monitor: 0,
+      critical: 0,
+      lastAnalysis: null,
+    };
+  }
+};
+
+/**
+ * Onboarding completion status
+ */
+export const setOnboardingComplete = async (complete: boolean = true): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, JSON.stringify(complete));
+  } catch (error) {
+    console.error('Failed to save onboarding status:', error);
+  }
+};
+
+export const isOnboardingComplete = async (): Promise<boolean> => {
+  try {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
+    return value === 'true';
+  } catch (error) {
+    console.error('Failed to check onboarding status:', error);
+    return false;
   }
 };

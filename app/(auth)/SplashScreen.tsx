@@ -23,6 +23,8 @@ export default function SplashScreen() {
 
       return () => clearTimeout(timer);
     }
+    // Add explicit return for the else case
+    return undefined; // or just: return;
   }, [isLoading, isComplete, router]);
 
   return (
