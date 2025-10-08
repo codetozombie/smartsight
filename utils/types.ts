@@ -184,3 +184,10 @@ export const STORAGE_KEYS: StorageKeys = {
   SETTINGS: 'smartsight_settings',
   ONBOARDING_COMPLETE: 'smartsight_onboarding_complete',
 } as const;
+
+export type SettingsStackParamList = {
+  SettingsScreen: undefined;
+  AboutScreen: undefined;
+  PrivacyScreen: undefined;
+  // Add other settings-related screens here
+};
