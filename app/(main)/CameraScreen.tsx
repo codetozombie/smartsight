@@ -1,16 +1,16 @@
 import { Button } from '@/components/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraType, CameraView, FlashMode, useCameraPermissions } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Image,
+  Alert, Image,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 interface CapturedImage {
@@ -54,6 +54,65 @@ export default function CameraScreen() {
     }
   };
 
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 1,
+        });
+        
+        console.log('Original photo dimensions:', photo.width, photo.height);
+        
+        // Get dimensions
+        const { width, height } = photo;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        // Calculate crop area - match your guide circle
+        const smallerDimension = Math.min(width, height);
+        const cropSize = smallerDimension * 0.7; // Adjust this value
+        
+        const originX = centerX - (cropSize / 2);
+        const originY = centerY - (cropSize / 2);
+        
+        console.log('Crop parameters:', { originX, originY, cropSize });
+        
+        // Crop the image
+        const croppedImage = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [
+            {
+              crop: {
+                originX: originX,
+                originY: originY,
+                width: cropSize,
+                height: cropSize,
+              },
+            },
+          ],
+          { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        
+        console.log('Cropped image URI:', croppedImage.uri);
+        console.log('Cropped dimensions:', croppedImage.width, croppedImage.height);
+        
+        // Navigate with cropped image
+        router.push({
+          pathname: '/(main)/ResultScreen',
+          params: { 
+            imageUri: croppedImage.uri,
+            width: croppedImage.width,
+            height: croppedImage.height
+          },
+        });
+        
+      } catch (error) {
+        console.error('Error taking/cropping picture:', error);
+        Alert.alert('Error', 'Failed to process image');
+      }
+    }
+  };
+
   const handleRetake = () => {
     setCapturedImage(null);
   };
@@ -80,6 +139,10 @@ export default function CameraScreen() {
   };
 
   if (!permission) {
+
+
+
+    
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>Requesting camera permission...</Text>
