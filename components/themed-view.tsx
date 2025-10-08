@@ -1,6 +1,10 @@
-import { View, type ViewProps } from 'react-native';
+/**
+ * SmartSight Themed View Component
+ * View component with theme-aware styling
+ */
 
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { View, type ViewProps } from 'react-native';
+import { useThemeColor } from '../hooks/use-theme-color';
 
 export type ThemedViewProps = ViewProps & {
   lightColor?: string;
