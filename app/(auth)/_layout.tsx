@@ -10,23 +10,11 @@ export default function AuthLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        gestureEnabled: false,
       }}
+      initialRouteName="SplashScreen"
     >
-      <Stack.Screen 
-        name="SplashScreen" 
-        options={{ 
-          headerShown: false,
-          gestureEnabled: false,
-        }} 
-      />
-      <Stack.Screen 
-        name="Onboarding" 
-        options={{ 
-          headerShown: false,
-          gestureEnabled: false,
-        }} 
-      />
+      <Stack.Screen name="SplashScreen" />
+      <Stack.Screen name="Onboarding" />
     </Stack>
   );
 }

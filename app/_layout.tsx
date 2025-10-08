@@ -7,55 +7,35 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '../constants/theme';
-import { useOnboardingStatus } from '../hooks/useAsyncStorage';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { isComplete, isLoading } = useOnboardingStatus();
-
   useEffect(() => {
-    if (!isLoading) {
-      // Hide splash screen once we know onboarding status
+    // Hide splash screen after a short delay to let the app initialize
+    const timer = setTimeout(() => {
       SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
+    }, 100);
 
-  if (isLoading) {
-    // Keep splash screen visible while loading
-    return null;
-  }
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1}}> {/* Added paddingTop */}
-        <StatusBar style="auto" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { 
-              backgroundColor: Colors.background,
-              paddingTop: 16, // Additional padding
-            },
-          }}
-        >
-          {!isComplete ? (
-            // Authentication flow
-            <>
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            </>
-          ) : (
-            // Main app flow
-            <>
-              <Stack.Screen name="(main)" options={{ headerShown: false }} />
-              <Stack.Screen name="settings" options={{ headerShown: false }} />
-            </>
-          )}
-        </Stack>
-      </SafeAreaView>
+      <StatusBar style="auto" />
+      <Stack 
+        screenOptions={{ 
+          headerShown: false,
+        }}
+        initialRouteName="(auth)"
+      >
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(main)" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="modal" />
+      </Stack>
     </SafeAreaProvider>
   );
 }

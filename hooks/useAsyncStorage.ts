@@ -95,19 +95,49 @@ export function useTestResults() {
   return useAsyncStorage<TestResult[]>('smartsight_test_results', []);
 }
 
+const ONBOARDING_KEY = '@smartsight_onboarding_complete';
+
 export function useOnboardingStatus() {
-  const { data, save, isLoading } = useAsyncStorage('smartsight_onboarding_complete', false);
-  
-  const markComplete = useCallback(async () => {
-    await save(true);
-  }, [save]);
-  
-  return {
-    isComplete: data || false,
-    markComplete,
-    isLoading,
+  const [isComplete, setIsComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const value = await AsyncStorage.getItem(ONBOARDING_KEY);
+      setIsComplete(value === 'true');
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setIsComplete(false);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const markComplete = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      setIsComplete(true);
+    } catch (error) {
+      console.error('Error marking onboarding complete:', error);
+    }
+  };
+
+  const reset = async () => {
+    try {
+      await AsyncStorage.removeItem(ONBOARDING_KEY);
+      setIsComplete(false);
+    } catch (error) {
+      console.error('Error resetting onboarding:', error);
+    }
+  };
+
+  return { isComplete, isLoading, markComplete, reset };
 }
 
 // Legacy export for backward compatibility
 export { useAsyncStorage as default };
+
