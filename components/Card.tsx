@@ -1,6 +1,6 @@
 /**
  * SmartSight Card Component
- * Reusable card container with consistent styling
+ * Enhanced with better visual hierarchy and accessibility
  */
 
 import { BorderRadius, Colors, Shadows, Spacing } from '@/constants/theme';
@@ -9,7 +9,7 @@ import { StyleSheet, View, ViewStyle } from 'react-native';
 
 export interface CardProps {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'outlined';
+  variant?: 'default' | 'elevated' | 'outlined' | 'flat';
   padding?: 'none' | 'small' | 'medium' | 'large';
   style?: ViewStyle;
 }
@@ -17,7 +17,7 @@ export interface CardProps {
 export const Card: React.FC<CardProps> = ({
   children,
   variant = 'default',
-  padding = 'medium',
+  padding = 'large',
   style,
 }) => {
   return (
@@ -25,9 +25,7 @@ export const Card: React.FC<CardProps> = ({
       style={[
         styles.base,
         styles[variant],
-        styles[
-          `padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles
-        ],
+        styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles],
         style,
       ]}
     >
@@ -38,11 +36,12 @@ export const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.xlarge,
     backgroundColor: Colors.white,
   },
   default: {
     backgroundColor: Colors.white,
+    ...Shadows.small,
   },
   elevated: {
     backgroundColor: Colors.white,
@@ -53,17 +52,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  flat: {
+    backgroundColor: Colors.backgroundSecondary,
+  },
   paddingNone: {
     padding: 0,
   },
   paddingSmall: {
-    padding: Spacing.small,
-  },
-  paddingMedium: {
     padding: Spacing.medium,
   },
-  paddingLarge: {
+  paddingMedium: {
     padding: Spacing.large,
+  },
+  paddingLarge: {
+    padding: Spacing.xlarge,
   },
 });
 

@@ -3,8 +3,7 @@
  * Reusable button with consistent styling and multiple variants
  */
 
-import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -12,18 +11,66 @@ import {
   TextStyle,
   TouchableOpacity,
   ViewStyle,
+  Animated,
 } from 'react-native';
+
+// Define inline colors if theme file doesn't exist yet
+const Colors = {
+  primary: '#0891b2',
+  white: '#ffffff',
+  background: '#f9fafb',
+  backgroundSecondary: '#f3f4f6',
+  error: '#dc2626',
+  text: '#111827',
+  textTertiary: '#6b7280',
+  disabledText: '#9ca3af',
+  black: '#000000',
+};
+
+const Spacing = {
+  small: 8,
+  medium: 12,
+  large: 16,
+  xlarge: 20,
+};
+
+const Typography = {
+  sizes: { small: 14, medium: 16, large: 18 },
+  weights: { semibold: '600' as const },
+};
+
+const BorderRadius = { large: 12 };
+
+const Shadows = {
+  small: {
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  medium: {
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+};
 
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  backgroundColor?: string; // Add this prop
+  backgroundColor?: string;
+  fullWidth?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -35,63 +82,98 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   style,
   textStyle,
-  backgroundColor, // Add this
+  backgroundColor,
+  fullWidth = false,
+  leftIcon,
+  rightIcon,
 }) => {
-  const getButtonStyle = (): ViewStyle => {
-    const baseStyle = styles.base;
-    const sizeStyle = styles[size];
-    const variantStyle = styles[variant];
-    const disabledStyle = disabled ? styles.disabled : {};
+  const [scaleValue] = useState(new Animated.Value(1));
 
-    return {
-      ...baseStyle,
-      ...sizeStyle,
-      ...variantStyle,
-      ...disabledStyle,
-      ...(backgroundColor && { backgroundColor }), // Override background color
-    };
+  const handlePressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.96,
+      useNativeDriver: true,
+    }).start();
   };
 
-  const getTextStyle = (): TextStyle => {
-    const baseTextStyle = styles.baseText;
-    const sizeTextStyle = styles[`${size}Text` as keyof typeof styles];
-    const variantTextStyle = styles[`${variant}Text` as keyof typeof styles];
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      friction: 3,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
 
-    return {
-      ...baseTextStyle,
-      ...sizeTextStyle,
-      ...variantTextStyle,
-    };
+  const isDisabled = disabled || loading;
+
+  const buttonStyle: ViewStyle = {
+    transform: [{ scale: scaleValue }],
   };
 
   return (
-    <TouchableOpacity
-      style={[getButtonStyle(), style]}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' ? Colors.white : Colors.primary}
-        />
-      ) : (
-        <Text style={[getTextStyle(), textStyle]}>{title}</Text>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={buttonStyle}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        activeOpacity={0.8}
+        style={[
+          styles.base,
+          styles[size],
+          styles[variant],
+          backgroundColor && variant !== 'outline' && variant !== 'ghost' 
+            ? { backgroundColor } 
+            : {},
+          fullWidth && styles.fullWidth,
+          isDisabled && styles.disabled,
+          style,
+        ]}
+      >
+        {loading && (
+          <ActivityIndicator
+            size="small"
+            color={variant === 'outline' || variant === 'ghost' ? Colors.primary : Colors.white}
+            style={styles.loader}
+          />
+        )}
+        
+        {!loading && leftIcon && <>{leftIcon}</>}
+        
+        <Text
+          style={[
+            styles.baseText,
+            styles[`${size}Text` as keyof typeof styles],
+            styles[`${variant}Text` as keyof typeof styles],
+            isDisabled && styles.disabledText,
+            textStyle,
+          ]}
+        >
+          {title}
+        </Text>
+        
+        {!loading && rightIcon && <>{rightIcon}</>}
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: BorderRadius.medium,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+    borderRadius: BorderRadius.large,
+    paddingHorizontal: Spacing.large,
+    minHeight: 44,
+    gap: Spacing.small,
   },
   
-  // Sizes
+  fullWidth: {
+    width: '100%',
+  },
+  
   small: {
     paddingHorizontal: Spacing.medium,
     paddingVertical: Spacing.small,
@@ -108,26 +190,33 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   
-  // Variants
   primary: {
     backgroundColor: Colors.primary,
+    ...Shadows.medium,
   },
   secondary: {
     backgroundColor: Colors.backgroundSecondary,
+    ...Shadows.small,
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.primary,
   },
   ghost: {
     backgroundColor: 'transparent',
-    paddingHorizontal: 8, // Reduce padding for ghost buttons
+  },
+  danger: {
+    backgroundColor: Colors.error,
+    ...Shadows.medium,
   },
   
-  // Text styles
+  disabled: {
+    opacity: 0.5,
+  },
+  
   baseText: {
-    fontWeight: Typography.weights.medium,
+    fontWeight: Typography.weights.semibold,
     textAlign: 'center',
   },
   smallText: {
@@ -140,7 +229,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.large,
   },
   
-  // Variant text styles
   primaryText: {
     color: Colors.white,
   },
@@ -152,12 +240,16 @@ const styles = StyleSheet.create({
   },
   ghostText: {
     color: Colors.primary,
-    fontSize: 14, // Smaller font for ghost buttons
+  },
+  dangerText: {
+    color: Colors.white,
+  },
+  disabledText: {
+    color: Colors.disabledText,
   },
   
-  // States
-  disabled: {
-    opacity: 0.5,
+  loader: {
+    marginRight: Spacing.small,
   },
 });
 
