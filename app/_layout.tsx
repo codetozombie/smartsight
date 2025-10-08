@@ -25,9 +25,12 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
-      <Stack 
-        screenOptions={{ 
+      <Stack
+        screenOptions={{
           headerShown: false,
+          contentStyle: {
+            paddingTop: 30 // Add top padding to all screens
+          },
         }}
         initialRouteName="(auth)"
       >
