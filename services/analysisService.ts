@@ -6,11 +6,19 @@ const mockAnalyzeImage = async (imageUri: string): Promise<AnalysisResult> => {
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 2000));
   
-  // Mock random result for testing
-  const outcomes: TestOutcome[] = ['healthy', 'monitor', 'critical'];
-  const randomOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
-  const randomConfidence = 0.7 + Math.random() * 0.25; // 70-95% confidence
-  
+  // Weighted random result: 75% healthy, 12.5% monitor, 12.5% critical
+  const rand = Math.random();
+  let randomOutcome: TestOutcome;
+
+  if (rand < 0.75) {
+    randomOutcome = 'healthy';
+  } else if (rand < 0.875) {
+    randomOutcome = 'monitor';
+  } else {
+    randomOutcome = 'critical';
+  }
+
+  const randomConfidence = 0.7 + Math.random() * 0.25; // 70–95% confidence
   const now = new Date().toISOString();
   
   return {
