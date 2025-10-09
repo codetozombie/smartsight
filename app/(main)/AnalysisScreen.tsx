@@ -1,10 +1,7 @@
+import { predictEyeDisease, PredictionResponse } from '../../services/apiService';
 import { Button } from '@/components/Button';
 import { Colors, Spacing, Typography } from '@/constants/theme';
-import { analyzeImageWithFallback } from '@/services/analysisService';
-import { ModelError } from '@/utils/errors';
-import { AnalysisResult } from '@/utils/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,8 +13,6 @@ import {
   Text,
   View
 } from 'react-native';
-import { saveResult } from '../../utils/storage';
-import { SavedResult } from '../../utils/types';
 
 export default function AnalysisScreen() {
   const router = useRouter();
@@ -25,7 +20,7 @@ export default function AnalysisScreen() {
   const imageUri = typeof params.imageUri === 'string' ? params.imageUri : '';
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<PredictionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const dotOpacity1 = useRef(new Animated.Value(0.3)).current;
@@ -120,16 +115,17 @@ export default function AnalysisScreen() {
       setIsAnalyzing(true);
       setError(null);
       
-      const result = await analyzeImageWithFallback(imageUri);
+      console.log('🔍 Starting analysis for image:', imageUri);
+      
+      // Use the API service instead of analyzeImageWithFallback
+      const result = await predictEyeDisease(imageUri, true);
+      
+      console.log('✅ Analysis complete:', result);
+      
       setAnalysisResult(result);
     } catch (error) {
-      console.error('Analysis failed:', error);
-      
-      if (error instanceof ModelError) {
-        setError(error.message);
-      } else {
-        setError('Analysis failed. Please try again.');
-      }
+      console.error('❌ Analysis failed:', error);
+      setError('Analysis failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -140,46 +136,20 @@ export default function AnalysisScreen() {
     startAnimations();
   };
 
-  const handleViewResults = async () => {
+  const handleViewResults = () => {
     if (analysisResult) {
-      try {
-        const savedResult: SavedResult = {
-          id: Date.now().toString(),
-          timestamp: analysisResult.timestamp,
-          imageUri: analysisResult.imageUri,
-          outcome: analysisResult.result,
-          confidence: analysisResult.confidence,
-          analysis: analysisResult,
-          date: analysisResult.timestamp,
-          result: analysisResult.result,
-          notes: '',
-        };
-        
-        await saveResult(savedResult);
-        
-        router.push({
-          pathname: '/(main)/ResultScreen',
-          params: {
-            prediction: analysisResult.result,
-            confidence: analysisResult.confidence.toString(),
-            timestamp: analysisResult.timestamp,
-            imageUri: analysisResult.imageUri,
-            details: JSON.stringify(analysisResult.details || {}),
-          },
-        });
-      } catch (error) {
-        console.error('Failed to save result:', error);
-        router.push({
-          pathname: '/(main)/ResultScreen',
-          params: {
-            prediction: analysisResult.result,
-            confidence: analysisResult.confidence.toString(),
-            timestamp: analysisResult.timestamp,
-            imageUri: analysisResult.imageUri,
-            details: JSON.stringify(analysisResult.details || {}),
-          },
-        });
-      }
+      router.push({
+        pathname: '/(main)/ResultScreen',
+        params: {
+          imageUri,
+          prediction: analysisResult.prediction,
+          confidence: analysisResult.confidence.toString(),
+          confidenceLevel: analysisResult.confidence_level,
+          probabilities: JSON.stringify(analysisResult.all_probabilities),
+          dataSource: analysisResult.dataSource || 'unknown',
+          timestamp: analysisResult.timestamp || new Date().toISOString(),
+        },
+      });
     }
   };
 
@@ -187,27 +157,29 @@ export default function AnalysisScreen() {
     router.push('/(main)/HomeScreen');
   };
 
-  const getResultColor = (result: string) => {
-    switch (result) {
-      case 'healthy':
+  const getResultColor = (prediction: string) => {
+    switch (prediction) {
+      case 'Normal':
         return Colors.success;
-      case 'monitor':
+      case 'Cataract':
+      case 'Diabetic Retinopathy':
+      case 'Glaucoma':
         return Colors.warning;
-      case 'critical':
-        return Colors.error;
       default:
         return Colors.textSecondary;
     }
   };
 
-  const getResultMessage = (result: string) => {
-    switch (result) {
-      case 'healthy':
+  const getResultMessage = (prediction: string) => {
+    switch (prediction) {
+      case 'Normal':
         return 'Your eye appears healthy!';
-      case 'monitor':
-        return 'Monitor recommended';
-      case 'critical':
-        return 'Immediate attention needed';
+      case 'Cataract':
+        return 'Cataract detected';
+      case 'Diabetic Retinopathy':
+        return 'Diabetic Retinopathy detected';
+      case 'Glaucoma':
+        return 'Glaucoma detected';
       default:
         return 'Analysis complete';
     }
@@ -245,7 +217,7 @@ export default function AnalysisScreen() {
                 style={styles.spinner}
               />
               <Text style={styles.subText}>
-                Using advanced AI to analyze your image
+                Connecting to AI analysis server...
               </Text>
             </>
           ) : error ? (
@@ -269,13 +241,18 @@ export default function AnalysisScreen() {
             <>
               <Text style={[
                 styles.resultText,
-                { color: getResultColor(analysisResult.result) }
+                { color: getResultColor(analysisResult.prediction) }
               ]}>
-                {getResultMessage(analysisResult.result)}
+                {getResultMessage(analysisResult.prediction)}
               </Text>
               <Text style={styles.confidenceText}>
                 Confidence: {Math.round(analysisResult.confidence * 100)}%
               </Text>
+              {analysisResult.dataSource && (
+                <Text style={styles.sourceText}>
+                  Source: {analysisResult.dataSource === 'api' ? '🌐 Online Analysis' : '📱 Offline Mode'}
+                </Text>
+              )}
               <Button
                 title="View Detailed Results"
                 onPress={handleViewResults}
@@ -310,7 +287,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.xxxlarge, // CHANGED from extraLarge
+    marginBottom: Spacing.xxxlarge,
   },
   imageWrapper: {
     width: 280,
@@ -340,7 +317,7 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     alignItems: 'center',
-    paddingBottom: Spacing.xxxlarge, // CHANGED from extraLarge
+    paddingBottom: Spacing.xxxlarge,
   },
   analyzingText: {
     fontSize: Typography.sizes.xlarge,
@@ -372,8 +349,15 @@ const styles = StyleSheet.create({
   confidenceText: {
     fontSize: Typography.sizes.large,
     color: Colors.textSecondary,
-    marginBottom: Spacing.xxxlarge, // CHANGED from extraLarge
+    marginBottom: Spacing.small,
     textAlign: 'center',
+  },
+  sourceText: {
+    fontSize: Typography.sizes.medium,
+    color: Colors.primary,
+    marginBottom: Spacing.xxxlarge,
+    textAlign: 'center',
+    fontWeight: Typography.weights.medium,
   },
   errorText: {
     fontSize: Typography.sizes.xlarge,
@@ -386,7 +370,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.medium,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: Spacing.xxxlarge, // CHANGED from extraLarge
+    marginBottom: Spacing.xxxlarge,
     lineHeight: 24,
   },
   actionButton: {

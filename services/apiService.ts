@@ -13,11 +13,10 @@ export interface PredictionResponse {
     Glaucoma: number;
     Normal: number;
   };
-  dataSource?: 'api' | 'offline'; // Add source tracking
+  dataSource?: 'api' | 'offline';
   timestamp?: string;
 }
 
-// Offline fallback - random generator
 const generateOfflinePrediction = (): PredictionResponse => {
   const diseases: Array<'Cataract' | 'Diabetic Retinopathy' | 'Glaucoma' | 'Normal'> = [
     'Cataract',
@@ -33,13 +32,11 @@ const generateOfflinePrediction = (): PredictionResponse => {
     Normal: Math.random()
   };
 
-  // Normalize probabilities to sum to 1
   const sum = Object.values(probabilities).reduce((a, b) => a + b, 0);
   Object.keys(probabilities).forEach(key => {
     probabilities[key as keyof typeof probabilities] /= sum;
   });
 
-  // Get prediction with highest probability
   const prediction = Object.entries(probabilities).reduce((a, b) => 
     a[1] > b[1] ? a : b
   )[0] as PredictionResponse['prediction'];
@@ -68,7 +65,9 @@ const generateOfflinePrediction = (): PredictionResponse => {
 export const checkApiHealth = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    console.log('🏥 Checking API health at:', BASE_URL + '/health');
 
     const response = await fetch(`${BASE_URL}/health`, {
       method: 'GET',
@@ -79,10 +78,20 @@ export const checkApiHealth = async (): Promise<boolean> => {
     });
 
     clearTimeout(timeoutId);
-    console.log('✅ API Health Check: Success');
-    return response.ok;
-  } catch (error) {
-    console.log('❌ API Health Check Failed:', error);
+    
+    if (response.ok) {
+      console.log('✅ API Health Check: Success');
+      return true;
+    } else {
+      console.log('⚠️ API Health Check: Bad status', response.status);
+      return false;
+    }
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.log('⏱️ API Health Check: Timeout (server may be sleeping)');
+    } else {
+      console.log('❌ API Health Check Failed:', error.message);
+    }
     return false;
   }
 };
@@ -93,6 +102,7 @@ export const predictEyeDisease = async (
 ): Promise<PredictionResponse> => {
   try {
     console.log('🔍 Starting prediction analysis...');
+    console.log('📸 Image URI:', imageUri);
     
     // Check internet connectivity
     const netInfo = await NetInfo.fetch();
@@ -111,47 +121,52 @@ export const predictEyeDisease = async (
 
     console.log('📡 Internet connected, checking API health...');
 
-    // Check API health with timeout
+    // Check API health
     const isApiHealthy = await checkApiHealth();
     if (!isApiHealthy) {
-      console.log('⚠️ API health check failed');
-      if (showAlerts) {
-        Alert.alert(
-          'API Unavailable',
-          'Cannot reach the analysis server. Using offline mode.',
-          [{ text: 'OK' }]
-        );
-      }
-      return generateOfflinePrediction();
+      console.log('⚠️ API not available, attempting direct request...');
     }
 
-    console.log('✅ API is healthy, sending image for analysis...');
+    console.log('✅ Preparing image for upload...');
 
-    // Prepare form data
+    // Create proper FormData with React Native compatibility
     const formData = new FormData();
+    
+    // For React Native, we need to append the file with this specific format
+    const filename = imageUri.split('/').pop() || 'photo.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
     formData.append('file', {
       uri: imageUri,
-      type: 'image/jpeg',
-      name: 'eye_image.jpg',
+      name: filename,
+      type: type,
     } as any);
 
-    // Make API request with timeout
+    console.log('📤 Uploading to:', BASE_URL + '/predict');
+    console.log('📋 File details:', { uri: imageUri, name: filename, type });
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     const response = await fetch(`${BASE_URL}/predict`, {
       method: 'POST',
       body: formData,
       headers: {
         'Accept': 'application/json',
+        // Important: Don't set Content-Type, let fetch handle it
       },
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
+    console.log('📡 Response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+      const errorText = await response.text();
+      console.log('❌ Error response:', errorText);
+      throw new Error(`API request failed with status ${response.status}: ${errorText}`);
     }
 
     const data: PredictionResponse = await response.json();
@@ -159,25 +174,21 @@ export const predictEyeDisease = async (
     console.log('✅ API Analysis Complete!');
     console.log('📊 Prediction:', data.prediction);
     console.log('📊 Confidence:', `${Math.round(data.confidence * 100)}%`);
+    console.log('🌐 Data source: API');
     
-    if (showAlerts) {
-      // Optional: Show success toast
-      console.log('✅ Live analysis completed successfully');
-    }
-
     return {
       ...data,
       dataSource: 'api',
       timestamp: new Date().toISOString(),
     };
 
-  } catch (error) {
-    console.error('❌ Prediction error:', error);
+  } catch (error: any) {
+    console.error('❌ Prediction error:', error.message);
     
-    if (showAlerts) {
+    if (showAlerts && error.name !== 'AbortError') {
       Alert.alert(
-        'Analysis Failed',
-        'Could not complete online analysis. Using offline mode instead.',
+        'Using Offline Mode',
+        `Could not connect to server.\n\nUsing offline analysis instead.`,
         [{ text: 'OK' }]
       );
     }
