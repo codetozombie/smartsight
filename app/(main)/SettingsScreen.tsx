@@ -2,12 +2,13 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface SettingsOption {
   id: string;
   title: string;
+  subtitle?: string;
   icon: keyof typeof Ionicons.glyphMap;
   action: () => void;
   showArrow?: boolean;
@@ -15,31 +16,25 @@ interface SettingsOption {
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
+  const [currentLanguage, setCurrentLanguage] = useState('English');
+
+  useEffect(() => {
+    loadLanguage();
+  }, []);
+
+  const loadLanguage = async () => {
+    try {
+      const savedLanguage = await AsyncStorage.getItem('selectedLanguage');
+      if (savedLanguage) {
+        setCurrentLanguage(savedLanguage);
+      }
+    } catch (error) {
+      console.log('Error loading language:', error);
+    }
+  };
 
   const handleLanguageChange = () => {
-    Alert.alert(
-      'Select Language',
-      'Choose your preferred language',
-      [
-        {
-          text: 'English',
-          onPress: () => Alert.alert('Language Changed', 'Language set to English'),
-        },
-        {
-          text: 'Spanish',
-          onPress: () => Alert.alert('Idioma Cambiado', 'Idioma establecido en Español'),
-        },
-        {
-          text: 'French',
-          onPress: () => Alert.alert('Langue Modifiée', 'Langue définie en Français'),
-        },
-        {
-          text: 'German',
-          onPress: () => Alert.alert('Sprache Geändert', 'Sprache auf Deutsch eingestellt'),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    router.push('/settings/LanguageSreen');
   };
 
   const handlePrivacyPolicy = () => {
@@ -80,6 +75,7 @@ const SettingsScreen: React.FC = () => {
     { 
       id: '1', 
       title: 'Change Language', 
+      subtitle: `Current: ${currentLanguage}`,
       icon: 'language-outline',
       action: handleLanguageChange,
       showArrow: true
@@ -87,6 +83,7 @@ const SettingsScreen: React.FC = () => {
     { 
       id: '2', 
       title: 'Privacy Policy', 
+      subtitle: 'View our privacy policy',
       icon: 'shield-checkmark-outline',
       action: handlePrivacyPolicy,
       showArrow: true
@@ -94,6 +91,7 @@ const SettingsScreen: React.FC = () => {
     { 
       id: '3', 
       title: 'About', 
+      subtitle: 'Learn more about SmartSight',
       icon: 'information-circle-outline',
       action: handleAbout,
       showArrow: true
@@ -101,6 +99,7 @@ const SettingsScreen: React.FC = () => {
     { 
       id: '4', 
       title: 'Contact Us', 
+      subtitle: 'Get in touch with our team',
       icon: 'mail-outline',
       action: handleContact,
       showArrow: true
@@ -108,6 +107,7 @@ const SettingsScreen: React.FC = () => {
     { 
       id: '5', 
       title: 'Clear History', 
+      subtitle: 'Delete all scan history',
       icon: 'trash-outline',
       action: handleClearHistory,
       showArrow: false
@@ -132,7 +132,12 @@ const SettingsScreen: React.FC = () => {
                 <View style={styles.iconContainer}>
                   <Ionicons name={option.icon} size={20} color={Colors.primary} />
                 </View>
-                <Text style={styles.optionText}>{option.title}</Text>
+                <View style={styles.optionTextContainer}>
+                  <Text style={styles.optionText}>{option.title}</Text>
+                  {option.subtitle && (
+                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                  )}
+                </View>
               </View>
               {option.showArrow && (
                 <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
@@ -154,7 +159,12 @@ const SettingsScreen: React.FC = () => {
                 <View style={styles.iconContainer}>
                   <Ionicons name={option.icon} size={20} color={Colors.primary} />
                 </View>
-                <Text style={styles.optionText}>{option.title}</Text>
+                <View style={styles.optionTextContainer}>
+                  <Text style={styles.optionText}>{option.title}</Text>
+                  {option.subtitle && (
+                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                  )}
+                </View>
               </View>
               {option.showArrow && (
                 <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
@@ -174,7 +184,12 @@ const SettingsScreen: React.FC = () => {
               <View style={[styles.iconContainer, styles.dangerIconContainer]}>
                 <Ionicons name={settingsOptions[4].icon} size={20} color={Colors.error} />
               </View>
-              <Text style={[styles.optionText, styles.dangerText]}>{settingsOptions[4].title}</Text>
+              <View style={styles.optionTextContainer}>
+                <Text style={[styles.optionText, styles.dangerText]}>{settingsOptions[4].title}</Text>
+                {settingsOptions[4].subtitle && (
+                  <Text style={styles.optionSubtitle}>{settingsOptions[4].subtitle}</Text>
+                )}
+              </View>
             </View>
           </TouchableOpacity>
         </View>
@@ -250,10 +265,18 @@ const styles = StyleSheet.create({
   dangerIconContainer: {
     backgroundColor: `${Colors.error}15`,
   },
+  optionTextContainer: {
+    flex: 1,
+  },
   optionText: {
     fontSize: Typography.sizes.medium,
     color: Colors.text,
     fontWeight: Typography.weights.medium,
+  },
+  optionSubtitle: {
+    fontSize: Typography.sizes.small,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   dangerOption: {
     borderWidth: 1,
