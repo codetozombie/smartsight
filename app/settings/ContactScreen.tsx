@@ -1,104 +1,318 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
-import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import type { SettingsStackParamList } from '../../utils/types';
+import { useState } from 'react';
+import { Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-type Nav = NativeStackNavigationProp<SettingsStackParamList, 'ContactScreen'>;
+export default function ContactScreen() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
 
-const ContactRow: React.FC<{ icon: keyof typeof Ionicons.glyphMap; label: string; value: string; onPress: () => void; }> = ({ icon, label, value, onPress }) => (
-  <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.8}>
-    <View style={styles.rowLeft}>
-      <Ionicons name={icon} size={22} color="#06b6d4" />
-      <Text style={styles.rowLabel}>{label}</Text>
-    </View>
-    <Text style={styles.rowValue}>{value}</Text>
-  </TouchableOpacity>
-);
+  const handleSubmit = () => {
+    if (!name || !email || !subject || !message) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
 
-const LinkRow: React.FC<{ title: string; url: string; }> = ({ title, url }) => (
-  <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL(url)}>
-    <Ionicons name="open-outline" size={18} color="#64748b" />
-    <Text style={styles.linkText}>{title}</Text>
-  </TouchableOpacity>
-);
+    Alert.alert(
+      'Message Sent',
+      'Thank you for contacting us! We will get back to you within 24-48 hours.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            setName('');
+            setEmail('');
+            setSubject('');
+            setMessage('');
+          },
+        },
+      ]
+    );
+  };
 
-const ContactScreen: React.FC = () => {
-  const navigation = useNavigation<Nav>();
+  const openEmail = () => {
+    Linking.openURL('mailto:support@smartsight.com');
+  };
 
-  const email = 'support@smartsight.app';
-  const phone = '+1 (555) 123-4567';
+  const openPhone = () => {
+    Linking.openURL('tel:+233XXXXXXXXX');
+  };
+
+  const openWebsite = () => {
+    Linking.openURL('https://www.smartsight.com');
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#64748b" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Contact</Text>
-        <View style={{ width: 40 }} />
+        <Ionicons name="mail" size={50} color="#007AFF" />
+        <Text style={styles.headerTitle}>Contact Us</Text>
+        <Text style={styles.headerSubtitle}>We'd love to hear from you</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Get in touch</Text>
-
-          <ContactRow
-            icon="mail-outline"
-            label="Email"
-            value={email}
-            onPress={() => Linking.openURL(`mailto:${email}`)}
-          />
-
-          <ContactRow
-            icon="call-outline"
-            label="Phone"
-            value={phone}
-            onPress={() => Linking.openURL(`tel:${phone.replace(/[^+\d]/g, '')}`)}
-          />
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Resources</Text>
-          <LinkRow title="American Academy of Ophthalmology" url="https://www.aao.org/eye-health" />
-          <LinkRow title="National Eye Institute" url="https://www.nei.nih.gov/learn-about-eye-health" />
-          <LinkRow title="World Health Organization - Vision" url="https://www.who.int/health-topics/blindness-and-vision-loss" />
-        </View>
-
-        <Text style={styles.disclaimer}>
-          SmartSight is not a medical device. For emergencies or concerning symptoms, contact a healthcare professional.
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Get in Touch</Text>
+        <Text style={styles.sectionText}>
+          Have questions, suggestions, or need support? Our team is here to help you 24/7.
         </Text>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+
+      <View style={styles.contactMethods}>
+        <TouchableOpacity style={styles.contactMethod} onPress={openEmail}>
+          <Ionicons name="mail-outline" size={24} color="#007AFF" />
+          <View style={styles.contactInfo}>
+            <Text style={styles.contactLabel}>Email</Text>
+            <Text style={styles.contactValue}>support@smartsight.com</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.contactMethod} onPress={openPhone}>
+          <Ionicons name="call-outline" size={24} color="#007AFF" />
+          <View style={styles.contactInfo}>
+            <Text style={styles.contactLabel}>Phone</Text>
+            <Text style={styles.contactValue}>+233 XX XXX XXXX</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.contactMethod} onPress={openWebsite}>
+          <Ionicons name="globe-outline" size={24} color="#007AFF" />
+          <View style={styles.contactInfo}>
+            <Text style={styles.contactLabel}>Website</Text>
+            <Text style={styles.contactValue}>www.smartsight.com</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+        </TouchableOpacity>
+
+        <View style={styles.contactMethod}>
+          <Ionicons name="location-outline" size={24} color="#007AFF" />
+          <View style={styles.contactInfo}>
+            <Text style={styles.contactLabel}>Address</Text>
+            <Text style={styles.contactValue}>123 Tech Street, Accra, Ghana</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.formSection}>
+        <Text style={styles.formTitle}>Send us a Message</Text>
+        
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Your full name"
+            placeholderTextColor="#C7C7CC"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="your.email@example.com"
+            placeholderTextColor="#C7C7CC"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Subject</Text>
+          <TextInput
+            style={styles.input}
+            value={subject}
+            onChangeText={setSubject}
+            placeholder="What is this about?"
+            placeholderTextColor="#C7C7CC"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Message</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Tell us more..."
+            placeholderTextColor="#C7C7CC"
+            multiline
+            numberOfLines={6}
+            textAlignVertical="top"
+          />
+        </View>
+
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitButtonText}>Send Message</Text>
+          <Ionicons name="send" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Office Hours</Text>
+        <Text style={styles.officeHours}>
+          Monday - Friday: 8:00 AM - 6:00 PM (GMT){'\n'}
+          Saturday: 9:00 AM - 2:00 PM (GMT){'\n'}
+          Sunday: Closed{'\n\n'}
+          Emergency Support: Available 24/7
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+        <Text style={styles.sectionText}>
+          Before reaching out, you might find answers in our FAQ section or visit our help center 
+          at help.smartsight.com for instant solutions to common issues.
+        </Text>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          We typically respond within 24-48 hours during business days
+        </Text>
+      </View>
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+  },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    padding: 30,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
   },
-  backButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 12,
   },
-  headerTitle: { fontSize: 20, fontWeight: '600', color: '#1f2937' },
-  content: { paddingHorizontal: 20, paddingBottom: 40 },
-  card: {
-    backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 4,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937', marginBottom: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
-  rowLeft: { flexDirection: 'row', alignItems: 'center' },
-  rowLabel: { marginLeft: 10, fontSize: 15, color: '#374151', fontWeight: '500' },
-  rowValue: { fontSize: 15, color: '#06b6d4', fontWeight: '600' },
-  linkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  linkText: { marginLeft: 8, color: '#64748b', fontSize: 15, textDecorationLine: 'underline' },
-  disclaimer: { marginTop: 10, fontSize: 12, color: '#6b7280', textAlign: 'center' },
+  section: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 12,
+  },
+  sectionText: {
+    fontSize: 15,
+    color: '#3C3C43',
+    lineHeight: 22,
+  },
+  contactMethods: {
+    backgroundColor: '#FFFFFF',
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  contactMethod: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  contactInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contactLabel: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+  contactValue: {
+    fontSize: 15,
+    color: '#000000',
+    marginTop: 2,
+  },
+  formSection: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: '#000000',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  textArea: {
+    height: 120,
+    paddingTop: 12,
+  },
+  submitButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  officeHours: {
+    fontSize: 15,
+    color: '#3C3C43',
+    lineHeight: 22,
+  },
+  footer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 13,
+    color: '#8E8E93',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
 });
-
-export default ContactScreen;

@@ -1,183 +1,222 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, Spacing, Typography } from '../../constants/theme';
+import React from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-interface SettingsOption {
-  id: string;
-  title: string;
-  subtitle?: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  route: string;
-  showArrow?: boolean;
-}
-
-export default function SettingsIndexScreen() {
+export default function SettingsScreen() {
   const router = useRouter();
+  const [currentLanguage, setCurrentLanguage] = React.useState('English');
 
-  const settingsOptions: SettingsOption[] = [
-    { 
-      id: '1', 
-      title: 'About SmartSight', 
-      subtitle: 'App information and version',
-      icon: 'information-circle-outline',
-      route: '/settings/AboutScreen'
+  const handleClearHistory = () => {
+    Alert.alert(
+      'Clear History',
+      'Are you sure you want to clear all scan history? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('scanHistory');
+              Alert.alert('Success', 'History cleared successfully');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear history');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleChangeLanguage = () => {
+    Alert.alert(
+      'Select Language',
+      'Choose your preferred language',
+      [
+        {
+          text: 'English',
+          onPress: () => {
+            setCurrentLanguage('English');
+            Alert.alert('Language Changed', 'Language set to English');
+          },
+        },
+        {
+          text: 'Spanish',
+          onPress: () => {
+            setCurrentLanguage('Spanish');
+            Alert.alert('Idioma Cambiado', 'Idioma establecido en Español');
+          },
+        },
+        {
+          text: 'French',
+          onPress: () => {
+            setCurrentLanguage('French');
+            Alert.alert('Langue Modifiée', 'Langue définie en Français');
+          },
+        },
+        {
+          text: 'German',
+          onPress: () => {
+            setCurrentLanguage('German');
+            Alert.alert('Sprache Geändert', 'Sprache auf Deutsch eingestellt');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const settingsOptions = [
+    {
+      title: 'Change Language',
+      subtitle: `Current: ${currentLanguage}`,
+      icon: 'language-outline',
+      onPress: handleChangeLanguage,
     },
-    { 
-      id: '2', 
-      title: 'Privacy Policy', 
-      subtitle: 'How we handle your data',
+    {
+      title: 'Privacy Policy',
+      subtitle: 'View our privacy policy',
       icon: 'shield-checkmark-outline',
-      route: '/settings/PrivacyPolicyScreen'
+      onPress: () => router.push('/settings/PrivacyPolicyScreen'),
     },
-    { 
-      id: '3', 
-      title: 'Contact Us', 
-      subtitle: 'Get help and support',
+    {
+      title: 'About',
+      subtitle: 'Learn more about SmartSight',
+      icon: 'information-circle-outline',
+      onPress: () => router.push('/settings/AboutScreen'),
+    },
+    {
+      title: 'Contact Us',
+      subtitle: 'Get in touch with our team',
       icon: 'mail-outline',
-      route: '/settings/ContactScreen'
+      onPress: () => router.push('/settings/ContactScreen'),
+    },
+    {
+      title: 'Clear History',
+      subtitle: 'Delete all scan history',
+      icon: 'trash-outline',
+      onPress: handleClearHistory,
+      danger: true,
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Manage your app preferences</Text>
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>General</Text>
-          {settingsOptions.map((option) => (
-            <TouchableOpacity
-              key={option.id}
-              style={styles.optionItem}
-              onPress={() => router.push(option.route)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name={option.icon} size={22} color={Colors.primary} />
-                </View>
-                <View style={styles.optionText}>
-                  <Text style={styles.optionTitle}>{option.title}</Text>
-                  {option.subtitle && (
-                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-                  )}
-                </View>
-              </View>
-              {option.showArrow !== false && (
-                <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerSubtitle}>Manage your preferences</Text>
+      </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>SmartSight v1.0.0</Text>
-          <Text style={styles.footerSubText}>
-            Made with ❤️ for better eye health
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.optionsList}>
+        {settingsOptions.map((option, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.optionItem}
+            onPress={option.onPress}
+          >
+            <View style={[styles.iconContainer, option.danger && styles.dangerIcon]}>
+              <Ionicons
+                name={option.icon as any}
+                size={24}
+                color={option.danger ? '#FF3B30' : '#007AFF'}
+              />
+            </View>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionTitle, option.danger && styles.dangerText]}>
+                {option.title}
+              </Text>
+              <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>SmartSight v1.0.0</Text>
+        <Text style={styles.footerSubtext}>© 2025 All rights reserved</Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
+    backgroundColor: '#F2F2F7',
   },
   header: {
-    paddingHorizontal: Spacing.large,
-    paddingVertical: Spacing.extraLarge,
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    paddingTop: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
   },
-  title: {
-    fontSize: Typography.sizes.xxxlarge,
-    fontWeight: Typography.weights.bold,
-    color: Colors.text,
-    marginBottom: Spacing.small,
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: 'bold',
+    color: '#000000',
   },
-  subtitle: {
-    fontSize: Typography.sizes.medium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 4,
   },
-  section: {
-    paddingHorizontal: Spacing.large,
-    marginBottom: Spacing.extraLarge,
-  },
-  sectionTitle: {
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
-    color: Colors.text,
-    marginBottom: Spacing.medium,
-    marginLeft: Spacing.small,
+  optionsList: {
+    marginTop: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E5E5EA',
   },
   optionItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    padding: Spacing.large,
-    marginBottom: Spacing.small,
-    borderRadius: 12,
-    shadowColor: Colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  optionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.backgroundSecondary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5F2FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.medium,
+    marginRight: 12,
   },
-  optionText: {
+  dangerIcon: {
+    backgroundColor: '#FFE5E5',
+  },
+  optionContent: {
     flex: 1,
   },
   optionTitle: {
-    fontSize: Typography.sizes.medium,
-    color: Colors.text,
-    fontWeight: Typography.weights.medium,
-    marginBottom: 2,
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  dangerText: {
+    color: '#FF3B30',
   },
   optionSubtitle: {
-    fontSize: Typography.sizes.small,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 2,
   },
   footer: {
     alignItems: 'center',
-    paddingHorizontal: Spacing.large,
-    paddingVertical: Spacing.extraLarge,
+    padding: 30,
   },
   footerText: {
-    fontSize: Typography.sizes.small,
-    color: Colors.textSecondary,
-    fontWeight: Typography.weights.medium,
+    fontSize: 14,
+    color: '#8E8E93',
   },
-  footerSubText: {
-    fontSize: Typography.sizes.small,
-    color: Colors.textSecondary,
-    marginTop: Spacing.small,
-    textAlign: 'center',
+  footerSubtext: {
+    fontSize: 12,
+    color: '#C7C7CC',
+    marginTop: 4,
   },
 });

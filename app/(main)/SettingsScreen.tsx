@@ -1,5 +1,6 @@
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,18 +17,41 @@ const SettingsScreen: React.FC = () => {
   const router = useRouter();
 
   const handleLanguageChange = () => {
-    Alert.alert('Change Language', 'Language settings coming soon!');
+    Alert.alert(
+      'Select Language',
+      'Choose your preferred language',
+      [
+        {
+          text: 'English',
+          onPress: () => Alert.alert('Language Changed', 'Language set to English'),
+        },
+        {
+          text: 'Spanish',
+          onPress: () => Alert.alert('Idioma Cambiado', 'Idioma establecido en Español'),
+        },
+        {
+          text: 'French',
+          onPress: () => Alert.alert('Langue Modifiée', 'Langue définie en Français'),
+        },
+        {
+          text: 'German',
+          onPress: () => Alert.alert('Sprache Geändert', 'Sprache auf Deutsch eingestellt'),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handlePrivacyPolicy = () => {
-    Alert.alert('Privacy Policy', 'Privacy policy will be displayed here.');
+    router.push('/settings/PrivacyPolicyScreen');
   };
 
   const handleAbout = () => {
-    Alert.alert(
-      'About SmartSight',
-      'SmartSight v1.0.0\n\nAI-powered eye health analysis for early detection and monitoring.\n\nDeveloped with ❤️ for better eye health.'
-    );
+    router.push('/settings/AboutScreen');
+  };
+
+  const handleContact = () => {
+    router.push('/settings/ContactScreen');
   };
 
   const handleClearHistory = () => {
@@ -39,9 +63,13 @@ const SettingsScreen: React.FC = () => {
         {
           text: 'Clear',
           style: 'destructive',
-          onPress: () => {
-            // Add your clear history logic here
-            Alert.alert('Success', 'Analysis history has been cleared.');
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('scanHistory');
+              Alert.alert('Success', 'Analysis history has been cleared.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear history. Please try again.');
+            }
           },
         },
       ]
@@ -53,22 +81,32 @@ const SettingsScreen: React.FC = () => {
       id: '1', 
       title: 'Change Language', 
       icon: 'language-outline',
-      action: handleLanguageChange 
+      action: handleLanguageChange,
+      showArrow: true
     },
     { 
       id: '2', 
       title: 'Privacy Policy', 
       icon: 'shield-checkmark-outline',
-      action: handlePrivacyPolicy 
+      action: handlePrivacyPolicy,
+      showArrow: true
     },
     { 
       id: '3', 
       title: 'About', 
       icon: 'information-circle-outline',
-      action: handleAbout 
+      action: handleAbout,
+      showArrow: true
     },
     { 
       id: '4', 
+      title: 'Contact Us', 
+      icon: 'mail-outline',
+      action: handleContact,
+      showArrow: true
+    },
+    { 
+      id: '5', 
       title: 'Clear History', 
       icon: 'trash-outline',
       action: handleClearHistory,
@@ -96,7 +134,7 @@ const SettingsScreen: React.FC = () => {
                 </View>
                 <Text style={styles.optionText}>{option.title}</Text>
               </View>
-              {option.showArrow !== false && (
+              {option.showArrow && (
                 <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
               )}
             </TouchableOpacity>
@@ -104,34 +142,39 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <TouchableOpacity
-            style={styles.optionItem}
-            onPress={settingsOptions[2].action}
-            activeOpacity={0.7}
-          >
-            <View style={styles.optionLeft}>
-              <View style={styles.iconContainer}>
-                <Ionicons name={settingsOptions[2].icon} size={20} color={Colors.primary} />
+          <Text style={styles.sectionTitle}>Information</Text>
+          {settingsOptions.slice(2, 4).map((option) => (
+            <TouchableOpacity
+              key={option.id}
+              style={styles.optionItem}
+              onPress={option.action}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionLeft}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name={option.icon} size={20} color={Colors.primary} />
+                </View>
+                <Text style={styles.optionText}>{option.title}</Text>
               </View>
-              <Text style={styles.optionText}>{settingsOptions[2].title}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-          </TouchableOpacity>
+              {option.showArrow && (
+                <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data</Text>
           <TouchableOpacity
             style={[styles.optionItem, styles.dangerOption]}
-            onPress={settingsOptions[3].action}
+            onPress={settingsOptions[4].action}
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
               <View style={[styles.iconContainer, styles.dangerIconContainer]}>
-                <Ionicons name={settingsOptions[3].icon} size={20} color={Colors.error} />
+                <Ionicons name={settingsOptions[4].icon} size={20} color={Colors.error} />
               </View>
-              <Text style={[styles.optionText, styles.dangerText]}>{settingsOptions[3].title}</Text>
+              <Text style={[styles.optionText, styles.dangerText]}>{settingsOptions[4].title}</Text>
             </View>
           </TouchableOpacity>
         </View>

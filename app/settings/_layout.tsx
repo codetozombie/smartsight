@@ -4,20 +4,18 @@
  */
 
 import { Stack } from 'expo-router';
-import { Colors } from '../../constants/theme';
 
 export default function SettingsLayout() {
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: Colors.white,
+          backgroundColor: '#fff',
         },
-        headerTintColor: Colors.text,
+        headerTintColor: '#007AFF',
         headerTitleStyle: {
-          fontWeight: '600',
+          fontWeight: 'bold',
         },
-        headerShadowVisible: false,
       }}
     >
       <Stack.Screen
@@ -30,21 +28,21 @@ export default function SettingsLayout() {
         name="AboutScreen"
         options={{
           title: 'About',
-          headerShown: true,
+          headerBackTitle: 'Settings',
         }}
       />
       <Stack.Screen
         name="PrivacyPolicyScreen"
         options={{
           title: 'Privacy Policy',
-          headerShown: true,
+          headerBackTitle: 'Settings',
         }}
       />
       <Stack.Screen
         name="ContactScreen"
         options={{
           title: 'Contact Us',
-          headerShown: true,
+          headerBackTitle: 'Settings',
         }}
       />
     </Stack>
