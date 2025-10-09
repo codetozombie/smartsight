@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
   },
   languageCard: {
-    width: '48%',
+    width: '45%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -188,11 +188,13 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
   languageFlag: {
     fontSize: 40,
+    textAlign: 'center',
+    flex: 1,
   },
   checkmark: {
     position: 'absolute',
