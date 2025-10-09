@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { predictEyeDisease, PredictionResponse } from '../../services/apiService';
 
 interface CapturedImage {
   uri: string;
@@ -26,6 +27,7 @@ export default function CameraScreen() {
   const [flash, setFlash] = useState<FlashMode>('off');
   const [capturedImage, setCapturedImage] = useState<CapturedImage | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (permission && !permission.granted) {
@@ -110,6 +112,36 @@ export default function CameraScreen() {
         console.error('Error taking/cropping picture:', error);
         Alert.alert('Error', 'Failed to process image');
       }
+    }
+  };
+
+  const analyzeImage = async (imageUri: string) => {
+    try {
+      setLoading(true);
+      
+      // Call the API service with alerts enabled
+      const result: PredictionResponse = await predictEyeDisease(imageUri, true);
+      
+      console.log(`Analysis source: ${result.dataSource}`);
+      
+      // Navigate to results with the prediction data including source
+      router.push({
+        pathname: '/(main)/ResultScreen',
+        params: {
+          imageUri,
+          prediction: result.prediction,
+          confidence: result.confidence.toString(),
+          confidenceLevel: result.confidence_level,
+          probabilities: JSON.stringify(result.all_probabilities),
+          dataSource: result.dataSource || 'unknown', // Pass the source
+          timestamp: result.timestamp || new Date().toISOString(),
+        }
+      });
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      Alert.alert('Error', 'Failed to analyze image. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

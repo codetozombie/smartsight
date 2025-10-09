@@ -13,48 +13,92 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { imageUri, prediction, confidence, details } = useLocalSearchParams<{
-    imageUri: string;
-    prediction: string;
-    confidence: string;
-    details: string;
-  }>();
+  const params = useLocalSearchParams();
+  
+  const imageUri = params.imageUri as string;
+  const prediction = params.prediction as string;
+  const confidence = parseFloat(params.confidence as string);
+  const confidenceLevel = params.confidenceLevel as string;
+  const probabilities = params.probabilities 
+    ? JSON.parse(params.probabilities as string) 
+    : null;
+  const dataSource = params.dataSource as string; // 'api' or 'offline'
 
-  const confidenceValue = parseFloat(confidence || '0');
-  const analysisDetails = details ? JSON.parse(details) : {};
-
-  const getConfidenceColor = (conf: number) => {
-    if (conf > 0.8) return Colors.success;
-    if (conf > 0.6) return Colors.warning;
-    return Colors.error;
+  const getConfidenceColor = () => {
+    if (confidenceLevel === 'High') return '#4CAF50';
+    if (confidenceLevel === 'Medium') return '#FF9800';
+    return '#F44336';
   };
 
-  const getConfidenceText = (conf: number) => {
-    if (conf > 0.8) return Strings.analysis.highConfidence;
-    if (conf > 0.6) return Strings.analysis.mediumConfidence;
-    return Strings.analysis.lowConfidence;
-  };
-
-  const getRecommendations = (pred: string, conf: number) => {
-    if (conf < 0.6) {
-      return [
-        Strings.results.lowConfidenceRec1,
-        Strings.results.lowConfidenceRec2,
-        Strings.results.lowConfidenceRec3,
-      ];
+  // Helper function to get confidence description
+  const getConfidenceText = (conf: number): string => {
+    const percentage = Math.round(conf * 100);
+    if (percentage >= 85) {
+      return 'High confidence - Results are highly reliable';
+    } else if (percentage >= 60) {
+      return 'Medium confidence - Consider consulting a specialist';
+    } else {
+      return 'Low confidence - Please consult a medical professional';
     }
-    
-    // You can add more specific recommendations based on the prediction
-    return [
-      Strings.results.generalRec1,
-      Strings.results.generalRec2,
-      Strings.results.generalRec3,
-    ];
   };
+
+  // Generate recommendations based on prediction
+  const getRecommendations = (): string[] => {
+    const baseRecommendations = [
+      'Consult with an ophthalmologist for professional diagnosis',
+      'Keep a record of this analysis in your history',
+      'Monitor any changes in your vision regularly',
+    ];
+
+    switch (prediction) {
+      case 'Cataract':
+        return [
+          ...baseRecommendations,
+          'Schedule an eye examination as soon as possible',
+          'Avoid driving at night if experiencing vision difficulties',
+          'Use brighter lighting for reading and daily activities',
+        ];
+      case 'Diabetic Retinopathy':
+        return [
+          ...baseRecommendations,
+          'Urgent: Contact your doctor immediately',
+          'Monitor and control blood sugar levels strictly',
+          'Schedule regular eye examinations every 3-6 months',
+        ];
+      case 'Glaucoma':
+        return [
+          ...baseRecommendations,
+          'Schedule an appointment with an eye specialist urgently',
+          'Measure your eye pressure regularly',
+          'Avoid activities that increase eye pressure',
+        ];
+      case 'Normal':
+        return [
+          'Your eye appears healthy, but regular checkups are recommended',
+          'Maintain good eye health with proper nutrition',
+          'Schedule routine eye examinations annually',
+          'Protect your eyes from UV radiation',
+        ];
+      default:
+        return baseRecommendations;
+    }
+  };
+
+  const recommendations = getRecommendations();
+
+  // Create analysis details from probabilities
+  const analysisDetails = probabilities ? {
+    'Cataract': `${Math.round(probabilities.Cataract * 100)}%`,
+    'Diabetic Retinopathy': `${Math.round(probabilities['Diabetic Retinopathy'] * 100)}%`,
+    'Glaucoma': `${Math.round(probabilities.Glaucoma * 100)}%`,
+    'Normal': `${Math.round(probabilities.Normal * 100)}%`,
+    'Confidence Level': confidenceLevel,
+    'Analysis Date': new Date().toLocaleDateString(),
+  } : {};
 
   const handleShare = async () => {
     try {
-      const message = `${Strings.results.shareMessage}\n\n${Strings.analysis.prediction}: ${prediction}\n${Strings.analysis.confidence}: ${Math.round(confidenceValue * 100)}%\n\n${Strings.appName}`;
+      const message = `${Strings.results.shareMessage}\n\n${Strings.analysis.prediction}: ${prediction}\n${Strings.analysis.confidence}: ${Math.round(confidence * 100)}%\n\n${Strings.appName}`;
       
       await Share.share({
         message: message,
@@ -73,8 +117,6 @@ export default function ResultScreen() {
   const handleViewHistory = () => {
     router.push('/(main)/HistoryScreen');
   };
-
-  const recommendations = getRecommendations(prediction || '', confidenceValue);
 
   return (
     <ThemedView style={styles.container}>
@@ -109,12 +151,27 @@ export default function ResultScreen() {
         {/* Main Result */}
         <Card style={styles.resultCard}>
           <View style={styles.resultHeader}>
+            {/* Add source badge */}
             <View style={[
-              styles.statusIcon,
-              { backgroundColor: getConfidenceColor(confidenceValue) }
+              styles.sourceBadge,
+              { backgroundColor: dataSource === 'api' ? '#4CAF50' : '#FF9800' }
             ]}>
               <Icon 
-                name={confidenceValue > 0.8 ? "check" : confidenceValue > 0.6 ? "warning" : "error"} 
+                name={dataSource === 'api' ? "cloud-done" : "cloud-off"} 
+                size={16} 
+                color={Colors.white} 
+              />
+              <ThemedText style={styles.sourceBadgeText}>
+                {dataSource === 'api' ? 'Live Analysis' : 'Offline Mode'}
+              </ThemedText>
+            </View>
+
+            <View style={[
+              styles.statusIcon,
+              { backgroundColor: getConfidenceColor() }
+            ]}>
+              <Icon 
+                name={confidence > 0.8 ? "check" : confidence > 0.6 ? "warning" : "error"} 
                 size={32} 
                 color={Colors.white} 
               />
@@ -140,10 +197,10 @@ export default function ResultScreen() {
               </ThemedText>
               <View style={[
                 styles.confidenceBadge,
-                { backgroundColor: getConfidenceColor(confidenceValue) }
+                { backgroundColor: getConfidenceColor() }
               ]}>
                 <ThemedText style={styles.confidenceValue}>
-                  {Math.round(confidenceValue * 100)}%
+                  {Math.round(confidence * 100)}%
                 </ThemedText>
               </View>
             </View>
@@ -153,15 +210,15 @@ export default function ResultScreen() {
                 style={[
                   styles.confidenceFill,
                   { 
-                    width: `${confidenceValue * 100}%`,
-                    backgroundColor: getConfidenceColor(confidenceValue)
+                    width: `${confidence * 100}%`,
+                    backgroundColor: getConfidenceColor()
                   }
                 ]}
               />
             </View>
             
             <ThemedText style={styles.confidenceDescription}>
-              {getConfidenceText(confidenceValue)}
+              {getConfidenceText(confidence)}
             </ThemedText>
           </View>
         </Card>
@@ -268,7 +325,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 300, // Adjust as needed
+    height: 300,
     borderRadius: 8,
   },
   resultCard: {
@@ -439,6 +496,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   bottomSpacing: {
-    height: Spacing.extraLarge,
+    height: Spacing.xxxlarge, // Changed from extraLarge to xxxlarge
+  },
+  sourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.medium,
+    paddingVertical: Spacing.xsmall,
+    borderRadius: 16,
+    marginBottom: Spacing.small,
+    gap: 4,
+  },
+  sourceBadgeText: {
+    fontSize: Typography.sizes.xsmall,
+    fontWeight: Typography.weights.medium,
+    color: Colors.white,
   },
 });

@@ -1,12 +1,10 @@
 import { Button } from '@/components/Button';
 import { Colors, Spacing, Typography } from '@/constants/theme';
-import { analyzeImageWithFallback } from '@/services/analysisService'; // 1. UPDATE THIS
-import { ModelError } from '@/utils/errors'; // 1. UPDATE THIS
+import { analyzeImageWithFallback } from '@/services/analysisService';
+import { ModelError } from '@/utils/errors';
 import { AnalysisResult } from '@/utils/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { SavedResult } from '../../utils/types'; // ADD THIS
-//import { saveResult } from '../../utils/storage'; // ADD THIS
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +16,9 @@ import {
   Text,
   View
 } from 'react-native';
-import { saveResult } from '../../utils/storage'; 
+import { saveResult } from '../../utils/storage';
+import { SavedResult } from '../../utils/types';
+
 export default function AnalysisScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -120,7 +120,7 @@ export default function AnalysisScreen() {
       setIsAnalyzing(true);
       setError(null);
       
-      const result = await analyzeImageWithFallback(imageUri); // 2. UPDATE THIS
+      const result = await analyzeImageWithFallback(imageUri);
       setAnalysisResult(result);
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -140,10 +140,9 @@ export default function AnalysisScreen() {
     startAnimations();
   };
 
-  const handleViewResults = async () => { // MAKE THIS ASYNC
+  const handleViewResults = async () => {
     if (analysisResult) {
       try {
-        // SAVE THE RESULT TO STORAGE
         const savedResult: SavedResult = {
           id: Date.now().toString(),
           timestamp: analysisResult.timestamp,
@@ -158,7 +157,6 @@ export default function AnalysisScreen() {
         
         await saveResult(savedResult);
         
-        // THEN NAVIGATE
         router.push({
           pathname: '/(main)/ResultScreen',
           params: {
@@ -171,7 +169,6 @@ export default function AnalysisScreen() {
         });
       } catch (error) {
         console.error('Failed to save result:', error);
-        // Still navigate even if save fails
         router.push({
           pathname: '/(main)/ResultScreen',
           params: {
@@ -313,7 +310,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.extraLarge,
+    marginBottom: Spacing.xxxlarge, // CHANGED from extraLarge
   },
   imageWrapper: {
     width: 280,
@@ -343,7 +340,7 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     alignItems: 'center',
-    paddingBottom: Spacing.extraLarge,
+    paddingBottom: Spacing.xxxlarge, // CHANGED from extraLarge
   },
   analyzingText: {
     fontSize: Typography.sizes.xlarge,
@@ -375,7 +372,7 @@ const styles = StyleSheet.create({
   confidenceText: {
     fontSize: Typography.sizes.large,
     color: Colors.textSecondary,
-    marginBottom: Spacing.extraLarge,
+    marginBottom: Spacing.xxxlarge, // CHANGED from extraLarge
     textAlign: 'center',
   },
   errorText: {
@@ -389,7 +386,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.medium,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: Spacing.extraLarge,
+    marginBottom: Spacing.xxxlarge, // CHANGED from extraLarge
     lineHeight: 24,
   },
   actionButton: {
